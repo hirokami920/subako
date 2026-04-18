@@ -36,11 +36,11 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 }
 .header-logo{display:flex;align-items:center;gap:10px}
 .header-logo svg{width:32px;height:32px;flex-shrink:0}
-.header-title{font-size:18px;font-weight:900;color:#fff;letter-spacing:0.5px;white-space:nowrap}
+.header-title{font-size:22px;font-weight:900;color:#fff;letter-spacing:0.5px;white-space:nowrap}
 .header-chips{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1}
 .chip{
   background:rgba(255,255,255,0.18);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.25);
-  border-radius:20px;padding:3px 12px;font-size:11px;color:rgba(255,255,255,0.95);
+  border-radius:20px;padding:4px 14px;font-size:14px;color:rgba(255,255,255,0.95);
   display:flex;align-items:center;gap:5px;white-space:nowrap;
 }
 .chip .cv{font-family:var(--font-mono);font-weight:700;color:#fff}
@@ -55,13 +55,13 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 
 /* PROGRESS */
 .progress-section{padding:10px 20px;flex-shrink:0;background:var(--bg-card);border-bottom:1px solid var(--border-light)}
-.progress-bar-outer{background:var(--blue-100);border-radius:20px;height:28px;position:relative;overflow:hidden;border:1px solid var(--blue-200)}
+.progress-bar-outer{background:#d1fae5;border-radius:20px;height:32px;position:relative;overflow:hidden;border:1px solid #86efac}
 .progress-bar-fill{
   height:100%;border-radius:20px;
-  background:linear-gradient(90deg,var(--blue-500),var(--blue-400),var(--blue-300));
+  background:linear-gradient(90deg,#15803d,#16a34a,#22c55e);
   transition:width 0.8s cubic-bezier(0.22,1,0.36,1);position:relative;
 }
-.progress-bar-fill.complete{background:linear-gradient(90deg,var(--done),#22c55e,#4ade80)}
+.progress-bar-fill.complete{background:linear-gradient(90deg,#15803d,#16a34a,#22c55e)}
 .progress-bar-fill::after{
   content:'';position:absolute;inset:0;
   background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);
@@ -70,28 +70,28 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 @keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
 .progress-text{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--blue-800);
+  font-family:var(--font-mono);font-weight:700;font-size:15px;color:#14532d;
   text-shadow:0 0 8px rgba(255,255,255,0.8);z-index:1;
 }
-.progress-stats{display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text2)}
+.progress-stats{display:flex;justify-content:space-between;margin-top:4px;font-size:13px;color:var(--text2);font-weight:600}
 
 /* MAIN */
 .main-area{display:flex;flex:1;overflow:hidden}
 
 /* LEFT — enlarged */
 .left-panel{
-  width:60%;max-width:800px;flex-shrink:0;overflow-y:auto;
+  width:45%;max-width:680px;flex-shrink:0;overflow-y:auto;
   padding:16px 20px;background:var(--bg-card);border-right:1px solid var(--border-light);
   display:flex;flex-direction:column;
 }
-.current-label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:1px}
+.current-label{font-size:14px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:1px}
 .current-header{display:flex;align-items:flex-end;gap:20px;margin-bottom:6px;flex-wrap:wrap}
-.current-id{font-family:var(--font-mono);font-size:88px;font-weight:700;line-height:1;color:var(--blue-700)}
+.current-id{font-family:var(--font-mono);font-size:96px;font-weight:700;line-height:1;color:var(--blue-700)}
 .current-meta{display:flex;flex-direction:column;gap:5px;padding-bottom:10px}
-.current-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700}
+.current-badge{display:inline-flex;align-items:center;gap:4px;padding:5px 16px;border-radius:20px;font-size:16px;font-weight:700}
 .badge-active{background:var(--active-bg);color:var(--active-orange);border:1px solid #fcd34d}
 .badge-done{background:var(--done-bg);color:var(--done);border:1px solid var(--done-border)}
-.current-count{font-family:var(--font-mono);font-size:15px;color:var(--text2);font-weight:600}
+.current-count{font-family:var(--font-mono);font-size:18px;color:var(--text2);font-weight:600}
 
 /* Latest product info */
 .latest-product{
@@ -99,18 +99,18 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
   border:1px solid var(--blue-200);border-radius:var(--radius-sm);
   padding:8px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
 }
-.lp-label{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap}
-.lp-value{font-family:var(--font-mono);font-size:16px;font-weight:700;color:var(--blue-800)}
-.lp-slot{font-family:var(--font-mono);font-size:13px;color:var(--text2);font-weight:600}
-.lp-time{font-size:10px;color:var(--text3);margin-left:auto}
+.lp-label{font-size:12px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap}
+.lp-value{font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--blue-800)}
+.lp-slot{font-family:var(--font-mono);font-size:16px;color:var(--text2);font-weight:600}
+.lp-time{font-size:12px;color:var(--text3);margin-left:auto}
 
 /* Type2 */
-.type2-box{background:var(--blue-50);border:1px solid var(--blue-200);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:8px}
-.type2-title{font-size:10px;font-weight:700;color:var(--blue-700);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.5px}
+.type2-box{background:var(--blue-50);border:1px solid var(--blue-200);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px}
+.type2-title{font-size:13px;font-weight:700;color:var(--blue-700);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.5px}
 .type2-items{display:flex;flex-wrap:wrap;gap:4px}
 .t2-chip{
   background:var(--pending-bg);border:1px solid var(--pending-border);
-  border-radius:var(--radius-xs);padding:2px 7px;font-size:9px;font-family:var(--font-mono);
+  border-radius:var(--radius-xs);padding:3px 8px;font-size:11px;font-family:var(--font-mono);
   color:var(--pending);font-weight:600;cursor:pointer;transition:all 0.15s;
 }
 .t2-chip.done{background:var(--done-bg);border-color:var(--done-border);color:var(--done)}
@@ -131,16 +131,15 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 .lcell.pending:hover{background:#c7d8f4}
 .lcell.done:hover{background:#bbf0cc}
 .lcell .tip{
-  display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
-  background:var(--blue-800);color:#fff;border-radius:6px;padding:5px 10px;
-  white-space:nowrap;font-size:10px;z-index:100;box-shadow:var(--shadow-md);pointer-events:none;
+  display:none;position:fixed;
+  background:var(--blue-800);color:#fff;border-radius:6px;padding:6px 12px;
+  white-space:nowrap;font-size:12px;z-index:1000;box-shadow:var(--shadow-lg);pointer-events:none;
 }
-.lcell .tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--blue-800)}
 .lcell:hover .tip{display:block}
 
 /* Cart selector */
 .cart-selector{margin-top:10px;flex-shrink:0}
-.cart-sel-title{font-size:10px;color:var(--text3);font-weight:600;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.5px}
+.cart-sel-title{font-size:13px;color:var(--text3);font-weight:600;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.5px}
 .cart-sel-row{display:flex;align-items:center;gap:8px}
 .auto-toggle{
   display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);
@@ -673,6 +672,30 @@ const W={
 window.W=W;
 
 render();
+
+// Tooltip positioning — uses fixed position so it never gets clipped
+document.addEventListener('mouseover',function(e){
+  const cell=e.target.closest('.lcell');
+  if(!cell)return;
+  const tip=cell.querySelector('.tip');
+  if(!tip)return;
+  const rect=cell.getBoundingClientRect();
+  // Temporarily show to measure
+  tip.style.visibility='hidden';tip.style.display='block';
+  const tipW=tip.offsetWidth;const tipH=tip.offsetHeight;
+  tip.style.visibility='';
+  // Horizontal center
+  let left=rect.left+rect.width/2-tipW/2;
+  if(left<4)left=4;
+  if(left+tipW>window.innerWidth-4)left=window.innerWidth-tipW-4;
+  tip.style.left=left+'px';
+  // Vertical: below if near top, above otherwise
+  if(rect.top<100){
+    tip.style.top=(rect.bottom+6)+'px';tip.style.bottom='auto';
+  }else{
+    tip.style.bottom=(window.innerHeight-rect.top+6)+'px';tip.style.top='auto';
+  }
+});
 </script>
 </body>
 </html>
