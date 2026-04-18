@@ -130,18 +130,13 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 .lcell.pending:hover,.lcell.done:hover{transform:scale(1.12);z-index:2;box-shadow:var(--shadow-md)}
 .lcell.pending:hover{background:#c7d8f4}
 .lcell.done:hover{background:#bbf0cc}
-.lcell .tip{
-  display:none;position:absolute;
-  background:var(--blue-800);color:#fff;border-radius:6px;padding:6px 12px;
-  white-space:nowrap;font-size:12px;z-index:1000;box-shadow:var(--shadow-lg);pointer-events:none;
+.lcell .tip{display:none}
+/* Global tooltip */
+#gtip{
+  position:fixed;background:var(--blue-800);color:#fff;border-radius:6px;padding:6px 12px;
+  white-space:nowrap;font-size:12px;z-index:10000;box-shadow:var(--shadow-lg);pointer-events:none;
+  display:none;
 }
-/* Default: show above */
-.lcell .tip.above{bottom:calc(100% + 6px);left:50%;transform:translateX(-50%)}
-.lcell .tip.above::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--blue-800)}
-/* Top rows: show below */
-.lcell .tip.below{top:calc(100% + 6px);left:50%;transform:translateX(-50%)}
-.lcell .tip.below::after{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-bottom-color:var(--blue-800)}
-.lcell:hover .tip{display:block}
 
 /* Cart selector */
 .cart-selector{margin-top:10px;flex-shrink:0}
@@ -677,6 +672,40 @@ const W={
   setV(v){S.mobileView=v;render()},
 };
 window.W=W;
+
+// === Global tooltip ===
+const gtip=document.createElement('div');
+gtip.id='gtip';
+document.body.appendChild(gtip);
+let tipTarget=null;
+document.addEventListener('mouseover',function(e){
+  const cell=e.target.closest('.lcell');
+  if(!cell||!cell.querySelector('.tip')){gtip.style.display='none';tipTarget=null;return}
+  tipTarget=cell;
+  gtip.textContent=cell.querySelector('.tip').textContent;
+  const rect=cell.getBoundingClientRect();
+  gtip.style.display='block';
+  const tipW=gtip.offsetWidth,tipH=gtip.offsetHeight;
+  let left=rect.left+rect.width/2-tipW/2;
+  if(left<4)left=4;
+  if(left+tipW>window.innerWidth-4)left=window.innerWidth-tipW-4;
+  gtip.style.left=left+'px';
+  gtip.style.top=rect.top<100?(rect.bottom+6)+'px':(rect.top-tipH-6)+'px';
+});
+document.addEventListener('mouseout',function(e){
+  const cell=e.target.closest('.lcell');
+  if(cell&&e.relatedTarget&&cell.contains(e.relatedTarget))return;
+  if(cell===tipTarget||!e.relatedTarget||!e.relatedTarget.closest||!e.relatedTarget.closest('.lcell')){
+    gtip.style.display='none';tipTarget=null;
+  }
+});
+
+// Hide tooltip on every render (prevents stale tooltip during GAS poll)
+const _origRender=render;
+function renderSafe(){gtip.style.display='none';tipTarget=null;_origRender()}
+// Replace all render calls
+window.renderOrig=render;
+render=renderSafe;
 
 render();
 </script>
