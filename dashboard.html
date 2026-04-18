@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>巣箱照合ダッシュボード</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue-50:#eff6ff;--blue-100:#dbeafe;--blue-200:#bfdbfe;--blue-300:#93c5fd;
+  --blue-400:#60a5fa;--blue-500:#3b82f6;--blue-600:#2563eb;--blue-700:#1d4ed8;
+  --blue-800:#1e40af;--blue-900:#1e3a5f;
+  --bg:#f0f5fa;--bg-card:#ffffff;
+  --text:#1a2b3c;--text2:#5a7088;--text3:#94a8bc;
+  --border:#d4e2f0;--border-light:#e8f0f8;
+  --done:#16a34a;--done-bg:#dcfce7;--done-border:#86efac;
+  --pending:#2563eb;--pending-bg:#dbeafe;--pending-border:#93c5fd;
+  --active-orange:#f59e0b;--active-bg:#fef3c7;
+  --empty:#edf2f7;
+  --shadow:0 1px 3px rgba(30,64,120,0.08),0 1px 2px rgba(30,64,120,0.04);
+  --shadow-md:0 4px 12px rgba(30,64,120,0.1),0 2px 4px rgba(30,64,120,0.06);
+  --shadow-lg:0 10px 30px rgba(30,64,120,0.12);
+  --radius:12px;--radius-sm:8px;--radius-xs:4px;
+  --font-body:'Noto Sans JP',sans-serif;
+  --font-mono:'IBM Plex Mono',monospace;
+}
+html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh}
+
+/* HEADER */
+.header{
+  background:linear-gradient(135deg,var(--blue-700) 0%,var(--blue-600) 50%,var(--blue-500) 100%);
+  padding:10px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;
+  box-shadow:0 2px 12px rgba(30,64,120,0.25);position:relative;z-index:10;flex-wrap:wrap;
+}
+.header-logo{display:flex;align-items:center;gap:10px}
+.header-logo svg{width:32px;height:32px;flex-shrink:0}
+.header-title{font-size:18px;font-weight:900;color:#fff;letter-spacing:0.5px;white-space:nowrap}
+.header-chips{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1}
+.chip{
+  background:rgba(255,255,255,0.18);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.25);
+  border-radius:20px;padding:3px 12px;font-size:11px;color:rgba(255,255,255,0.95);
+  display:flex;align-items:center;gap:5px;white-space:nowrap;
+}
+.chip .cv{font-family:var(--font-mono);font-weight:700;color:#fff}
+.chip.hl{background:rgba(255,255,255,0.3);border-color:rgba(255,255,255,0.5)}
+.header-actions{display:flex;gap:6px;margin-left:auto}
+.hdr-btn{
+  background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);
+  border-radius:var(--radius-sm);padding:5px 12px;color:#fff;cursor:pointer;
+  font-size:11px;font-family:var(--font-body);font-weight:600;transition:all 0.2s;
+}
+.hdr-btn:hover{background:rgba(255,255,255,0.3)}
+
+/* PROGRESS */
+.progress-section{padding:10px 20px;flex-shrink:0;background:var(--bg-card);border-bottom:1px solid var(--border-light)}
+.progress-bar-outer{background:var(--blue-100);border-radius:20px;height:28px;position:relative;overflow:hidden;border:1px solid var(--blue-200)}
+.progress-bar-fill{
+  height:100%;border-radius:20px;
+  background:linear-gradient(90deg,var(--blue-500),var(--blue-400),var(--blue-300));
+  transition:width 0.8s cubic-bezier(0.22,1,0.36,1);position:relative;
+}
+.progress-bar-fill.complete{background:linear-gradient(90deg,var(--done),#22c55e,#4ade80)}
+.progress-bar-fill::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);
+  animation:shimmer 2.5s infinite;
+}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.progress-text{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--blue-800);
+  text-shadow:0 0 8px rgba(255,255,255,0.8);z-index:1;
+}
+.progress-stats{display:flex;justify-content:space-between;margin-top:4px;font-size:10px;color:var(--text2)}
+
+/* MAIN */
+.main-area{display:flex;flex:1;overflow:hidden}
+
+/* LEFT — enlarged */
+.left-panel{
+  width:60%;max-width:800px;flex-shrink:0;overflow-y:auto;
+  padding:16px 20px;background:var(--bg-card);border-right:1px solid var(--border-light);
+  display:flex;flex-direction:column;
+}
+.current-label{font-size:11px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:1px}
+.current-header{display:flex;align-items:flex-end;gap:20px;margin-bottom:6px;flex-wrap:wrap}
+.current-id{font-family:var(--font-mono);font-size:88px;font-weight:700;line-height:1;color:var(--blue-700)}
+.current-meta{display:flex;flex-direction:column;gap:5px;padding-bottom:10px}
+.current-badge{display:inline-flex;align-items:center;gap:4px;padding:4px 14px;border-radius:20px;font-size:13px;font-weight:700}
+.badge-active{background:var(--active-bg);color:var(--active-orange);border:1px solid #fcd34d}
+.badge-done{background:var(--done-bg);color:var(--done);border:1px solid var(--done-border)}
+.current-count{font-family:var(--font-mono);font-size:15px;color:var(--text2);font-weight:600}
+
+/* Latest product info */
+.latest-product{
+  background:linear-gradient(135deg,var(--blue-50),#f0f7ff);
+  border:1px solid var(--blue-200);border-radius:var(--radius-sm);
+  padding:8px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+}
+.lp-label{font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap}
+.lp-value{font-family:var(--font-mono);font-size:16px;font-weight:700;color:var(--blue-800)}
+.lp-slot{font-family:var(--font-mono);font-size:13px;color:var(--text2);font-weight:600}
+.lp-time{font-size:10px;color:var(--text3);margin-left:auto}
+
+/* Type2 */
+.type2-box{background:var(--blue-50);border:1px solid var(--blue-200);border-radius:var(--radius-sm);padding:8px 10px;margin-bottom:8px}
+.type2-title{font-size:10px;font-weight:700;color:var(--blue-700);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.5px}
+.type2-items{display:flex;flex-wrap:wrap;gap:4px}
+.t2-chip{
+  background:var(--pending-bg);border:1px solid var(--pending-border);
+  border-radius:var(--radius-xs);padding:2px 7px;font-size:9px;font-family:var(--font-mono);
+  color:var(--pending);font-weight:600;cursor:pointer;transition:all 0.15s;
+}
+.t2-chip.done{background:var(--done-bg);border-color:var(--done-border);color:var(--done)}
+
+/* Large grid */
+.grid-wrap{flex:1;display:flex;flex-direction:column;min-height:0}
+.grid-scroll{flex:1;overflow:auto}
+.large-grid{display:grid;gap:2px}
+.lcell{
+  aspect-ratio:1;border-radius:var(--radius-xs);display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-size:10px;font-weight:700;cursor:default;
+  position:relative;transition:all 0.15s;
+}
+.lcell.empty{background:var(--empty)}
+.lcell.pending{background:var(--pending-bg);color:var(--pending);border:1px solid var(--pending-border);cursor:pointer}
+.lcell.done{background:var(--done-bg);color:var(--done);border:1px solid var(--done-border);cursor:pointer}
+.lcell.pending:hover,.lcell.done:hover{transform:scale(1.12);z-index:2;box-shadow:var(--shadow-md)}
+.lcell.pending:hover{background:#c7d8f4}
+.lcell.done:hover{background:#bbf0cc}
+.lcell .tip{
+  display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);
+  background:var(--blue-800);color:#fff;border-radius:6px;padding:5px 10px;
+  white-space:nowrap;font-size:10px;z-index:100;box-shadow:var(--shadow-md);pointer-events:none;
+}
+.lcell .tip::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--blue-800)}
+.lcell:hover .tip{display:block}
+
+/* Cart selector */
+.cart-selector{margin-top:10px;flex-shrink:0}
+.cart-sel-title{font-size:10px;color:var(--text3);font-weight:600;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.5px}
+.cart-sel-row{display:flex;align-items:center;gap:8px}
+.auto-toggle{
+  display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);
+  cursor:pointer;padding:3px 8px;border-radius:12px;border:1px solid var(--border);
+  background:var(--bg);transition:all 0.2s;user-select:none;white-space:nowrap;
+}
+.auto-toggle.on{background:var(--blue-50);border-color:var(--blue-300);color:var(--blue-600)}
+.cart-btns{display:flex;flex-wrap:wrap;gap:5px;flex:1}
+.cbtn{
+  background:var(--bg-card);border:2px solid var(--border);border-radius:var(--radius-sm);
+  padding:5px 14px;font-family:var(--font-mono);font-size:15px;font-weight:700;
+  color:var(--text2);cursor:pointer;transition:all 0.2s;
+}
+.cbtn:hover{border-color:var(--blue-400);color:var(--blue-600)}
+.cbtn.active{border-color:var(--blue-500);color:var(--blue-600);background:var(--blue-50);box-shadow:var(--shadow)}
+.cbtn.cdone{border-color:var(--done);color:var(--done);background:var(--done-bg)}
+
+/* RIGHT */
+.right-panel{
+  flex:1;overflow-y:auto;padding:12px;
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));
+  gap:10px;align-content:flex-start;background:var(--bg);
+}
+.mini-cart{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:10px;cursor:pointer;transition:all 0.2s;box-shadow:var(--shadow);
+}
+.mini-cart:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.mini-cart.mc-done{border-color:var(--done-border);background:#f7fef9}
+.mini-cart.mc-active{border-color:var(--blue-400);border-width:2px}
+.mc-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.mc-id{font-family:var(--font-mono);font-size:17px;font-weight:700;color:var(--text)}
+.mc-badge{font-size:9px;padding:2px 8px;border-radius:12px;font-weight:700}
+.mcb-done{background:var(--done-bg);color:var(--done)}
+.mcb-prog{background:var(--blue-50);color:var(--blue-600)}
+.mc-stats{font-size:9px;color:var(--text3);margin-bottom:4px;font-family:var(--font-mono);font-weight:600}
+.mini-grid{display:grid;gap:1px}
+.mcell{aspect-ratio:1;border-radius:1px}
+.mcell.empty{background:var(--empty)}
+.mcell.pending{background:var(--blue-300)}
+.mcell.done{background:var(--done)}
+
+/* UPLOAD — with drag & drop */
+.upload-overlay{position:fixed;inset:0;background:linear-gradient(135deg,var(--blue-50),#fff,var(--blue-100));display:flex;align-items:center;justify-content:center;z-index:1000}
+.upload-card{
+  background:var(--bg-card);border-radius:20px;padding:48px;text-align:center;
+  box-shadow:var(--shadow-lg);border:2px dashed var(--border);max-width:480px;width:90%;
+  transition:all 0.3s;
+}
+.upload-card.dragover{border-color:var(--blue-500);background:var(--blue-50);transform:scale(1.02)}
+.upload-card h2{font-size:22px;font-weight:900;color:var(--blue-700);margin-bottom:6px}
+.upload-card p{color:var(--text2);font-size:14px;margin-bottom:24px;line-height:1.6}
+.upload-main-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  background:linear-gradient(135deg,var(--blue-600),var(--blue-500));
+  color:#fff;border:none;border-radius:var(--radius);padding:14px 36px;
+  font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font-body);
+  box-shadow:0 4px 14px rgba(37,99,235,0.35);transition:all 0.2s;
+}
+.upload-main-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(37,99,235,0.45)}
+.upload-or{margin:16px 0;font-size:12px;color:var(--text3)}
+.upload-drop-text{font-size:13px;color:var(--blue-500);font-weight:600}
+.upload-hint{margin-top:16px;font-size:11px;color:var(--text3)}
+input[type=file]{display:none}
+
+/* Full-page drop zone overlay (when dragging over the whole page after CSV loaded) */
+.drop-overlay{
+  position:fixed;inset:0;background:rgba(37,99,235,0.1);backdrop-filter:blur(2px);
+  border:4px dashed var(--blue-400);z-index:999;display:flex;align-items:center;justify-content:center;
+  pointer-events:none;
+}
+.drop-overlay-text{background:var(--bg-card);padding:20px 40px;border-radius:var(--radius);font-size:18px;font-weight:700;color:var(--blue-600);box-shadow:var(--shadow-lg)}
+
+/* GAS MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(30,58,95,0.4);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:1000}
+.modal-box{background:var(--bg-card);border-radius:var(--radius);padding:28px;width:520px;max-width:92vw;box-shadow:var(--shadow-lg);border:1px solid var(--border);max-height:90vh;overflow-y:auto}
+.modal-box h3{font-size:17px;font-weight:800;color:var(--blue-700);margin-bottom:6px}
+.modal-box .desc{font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6}
+.modal-box input{
+  width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:10px 12px;color:var(--text);font-size:13px;font-family:var(--font-mono);margin-bottom:6px;
+}
+.modal-box input:focus{outline:none;border-color:var(--blue-400);box-shadow:0 0 0 3px var(--blue-100)}
+.modal-box .note{font-size:10px;color:var(--text3);margin-bottom:14px;line-height:1.6}
+.modal-box .note code{background:var(--blue-50);padding:1px 4px;border-radius:3px;font-family:var(--font-mono);font-size:9px}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end}
+.mbtn{padding:8px 20px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-family:var(--font-body);font-weight:700;font-size:13px;transition:all 0.15s}
+.mbtn-save{background:var(--blue-600);color:#fff}
+.mbtn-save:hover{background:var(--blue-700)}
+.mbtn-cancel{background:var(--bg);color:var(--text2);border:1px solid var(--border) !important}
+
+/* POLL */
+.poll-ind{
+  position:fixed;bottom:6px;right:10px;font-size:9px;color:var(--text3);
+  font-family:var(--font-mono);background:rgba(255,255,255,0.9);padding:2px 8px;
+  border-radius:10px;border:1px solid var(--border-light);z-index:50;
+}
+.pdot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:3px;vertical-align:middle}
+.pdot.on{background:var(--done);animation:pulse 1.5s infinite}
+.pdot.off{background:var(--text3)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* MOBILE */
+@media(max-width:768px){
+  .header{padding:8px 12px;gap:8px}
+  .header-title{font-size:15px}
+  .chip{font-size:10px;padding:2px 8px}
+  .header-actions{display:none}
+  .progress-section{padding:6px 12px}
+  .progress-bar-outer{height:22px}
+  .progress-text{font-size:11px}
+  .main-area{flex-direction:column}
+  .left-panel{width:100%;max-width:none;border-right:none;border-bottom:1px solid var(--border-light);padding:10px 12px;flex-shrink:0;flex:1}
+  .current-id{font-size:52px}
+  .lp-value{font-size:14px}
+  .lcell{font-size:7px}
+  .right-panel{padding:8px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;flex:1}
+  .mini-cart{padding:8px}
+  .mc-id{font-size:14px}
+  .cart-btns{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+  .cbtn{flex-shrink:0;padding:4px 12px;font-size:13px}
+  .mobile-nav{
+    display:flex;position:fixed;bottom:0;left:0;right:0;
+    background:var(--bg-card);border-top:1px solid var(--border);
+    padding:6px 8px;gap:6px;overflow-x:auto;z-index:50;
+    box-shadow:0 -2px 10px rgba(30,64,120,0.08);-webkit-overflow-scrolling:touch;
+  }
+  .mnav-btn{
+    flex-shrink:0;background:var(--bg);border:1.5px solid var(--border);
+    border-radius:var(--radius-sm);padding:6px 14px;font-family:var(--font-mono);
+    font-size:14px;font-weight:700;color:var(--text2);cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;gap:2px;
+  }
+  .mnav-btn.active{border-color:var(--blue-500);color:var(--blue-600);background:var(--blue-50)}
+  .mnav-btn.ndone{border-color:var(--done);color:var(--done);background:var(--done-bg)}
+  .mnav-pct{font-size:8px}
+  .poll-ind{bottom:52px}
+  .view-tabs{display:flex;background:var(--bg-card);border-bottom:1px solid var(--border-light);flex-shrink:0}
+  .vtab{flex:1;text-align:center;padding:8px;font-size:12px;font-weight:700;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s}
+  .vtab.active{color:var(--blue-600);border-bottom-color:var(--blue-500)}
+  .left-panel.hm,.right-panel.hm{display:none !important}
+}
+@media(min-width:769px){
+  .mobile-nav{display:none}
+  .view-tabs{display:none}
+}
+
+*::-webkit-scrollbar{width:5px;height:5px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ===== CSV =====
+function parseCSV(text){
+  const lines=text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
+  if(lines.length<2)return null;
+  const items=[];
+  for(let i=1;i<lines.length;i++){
+    const line=lines[i].replace(/"/g,'').trim();
+    if(!line)continue;
+    const hi=line.indexOf('#');
+    if(hi<0)continue;
+    const before=line.substring(0,hi),after=line.substring(hi+1);
+    const pp=before.split(','),ap=after.split(',');
+    const date=ap[0]||'',ci=(ap[1]||'').trim();
+    let cart,slot,type;
+    if(ci.includes('-')){const s=ci.split('-');cart=s[0];slot=parseInt(s[1]);type=1}
+    else{cart=ci;slot=-1;type=2}
+    items.push({product:pp[0]||'',num:pp[1]||'',date,cart,slot,type});
+  }
+  return items;
+}
+function buildCartData(items){
+  const carts={};let date='';
+  items.forEach(it=>{
+    if(!date&&it.date)date=it.date;
+    if(!carts[it.cart])carts[it.cart]={slots:{},type2:[],maxSlot:0};
+    if(it.type===1){carts[it.cart].slots[it.slot]={product:it.product,num:it.num};if(it.slot>carts[it.cart].maxSlot)carts[it.cart].maxSlot=it.slot}
+    else carts[it.cart].type2.push({product:it.product,num:it.num});
+  });
+  return{carts,date,totalItems:items.length};
+}
+function loadCSVFile(file){
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    const items=parseCSV(ev.target.result);
+    if(items&&items.length>0){S.cartData=buildCartData(items);S.showUpload=false;S.dragging=false;startPoll();render()}
+    else alert('CSV解析に失敗しました。形式を確認してください。');
+  };
+  rd.readAsText(file,'Shift_JIS');
+}
+
+// ===== STATE =====
+const S={
+  cartData:null,selectedCart:null,verified:{},
+  gasUrl:null,pollTimer:null,lastPoll:null,gasError:null,gasRows:0,
+  showUpload:true,showGas:false,mobileView:'cart',
+  autoFollow:true, // auto-switch to latest cart
+  lastVerifiedCart:null,lastVerifiedLabel:null,lastVerifiedSlot:null,lastVerifiedTime:null,
+  dragging:false,
+};
+try{S.gasUrl=localStorage.getItem('subako_gas_url')||''}catch(e){}
+
+// ===== GAS =====
+function gasLog(msg,data){console.log('[GAS]',msg,data||'')}
+
+async function fetchGAS(){
+  if(!S.gasUrl||!S.cartData){return}
+  try{
+    const sep=S.gasUrl.includes('?')?'&':'?';
+    const r=await fetch(S.gasUrl+sep+'t='+Date.now(),{redirect:'follow'});
+    if(!r.ok){S.gasError='HTTP '+r.status;render();return}
+    const text=await r.text();
+    let data;
+    try{data=JSON.parse(text)}catch(pe){S.gasError='JSONパースエラー';render();return}
+    if(!data){S.gasError='空のレスポンス';render();return}
+    const v={};
+    let rows=Array.isArray(data)?data:(data.data||data.values||[]);
+    let lastCart=null,lastLabel=null,lastSlot=null,lastTime=null;
+    let parsed=0;
+    rows.forEach((row,ri)=>{
+      let cartId=null,slotNum=null,productLabel=null,rowTime=null;
+      if(Array.isArray(row)){
+        // Time from col 0
+        rowTime=row[0]?String(row[0]):'';
+        // Strategy 1: 製品ラベル col3
+        const label=String(row[3]||'').trim();
+        productLabel=label;
+        let m=label.match(/#\d{8},(\d+_\d+)(?:-(\d+))?/);
+        if(m){cartId=m[1];slotNum=m[2]?parseInt(m[2]):null}
+        // Strategy 2: 抽出巣箱 col4 + 抽出差込口 col5
+        if(!cartId){
+          const rawCart=String(row[4]||'').trim();
+          const rawSlot=String(row[5]||'').trim();
+          const cm=rawCart.match(/(\d+_\d+)/);
+          if(cm)cartId=cm[1];
+          if(cartId){const rs=parseInt(rawSlot);if(!isNaN(rs)&&rs>0)slotNum=rs}
+        }
+        // Strategy 3: col B + col C
+        if(!cartId){
+          const colB=String(row[1]||'').trim();
+          const colC=String(row[2]||'').trim();
+          const bm=colB.match(/(\d+_\d+)/);
+          if(bm)cartId=bm[1];
+          else{const am=String(row[3]||'').match(/(\d+_\d+)(?:-(\d+))?/);if(am){cartId=am[1];slotNum=am[2]?parseInt(am[2]):null}}
+          if(cartId&&!slotNum){const cs=parseInt(colC);if(!isNaN(cs)&&cs>0)slotNum=cs}
+        }
+      }else if(typeof row==='object'){
+        const label=row['製品ラベル']||row.label||row.qr||'';
+        productLabel=String(label);
+        let m=String(label).match(/#\d{8},(\d+_\d+)(?:-(\d+))?/);
+        if(m){cartId=m[1];slotNum=m[2]?parseInt(m[2]):null}
+        if(!cartId){
+          const rc=String(row['抽出巣箱']||row.cart||'');
+          const cm=rc.match(/(\d+_\d+)/);if(cm)cartId=cm[1];
+          const rs=row['抽出差込口']||row.slot||'';
+          if(cartId&&rs){const n=parseInt(rs);if(!isNaN(n)&&n>0)slotNum=n}
+        }
+        rowTime=row['日時']||row.time||'';
+      }
+      if(cartId){
+        if(!v[cartId])v[cartId]=new Set();
+        if(slotNum!==null&&!isNaN(slotNum)&&slotNum>0){v[cartId].add(slotNum)}
+        else{let idx=0;while(v[cartId].has('t2-'+idx))idx++;v[cartId].add('t2-'+idx)}
+        // Track last verified for auto-follow
+        lastCart=cartId;lastSlot=slotNum;lastLabel=productLabel;lastTime=rowTime;
+        parsed++;
+      }
+    });
+    gasLog('parsed '+parsed+'/'+rows.length);
+    // Update last verified info
+    if(lastCart){
+      S.lastVerifiedCart=lastCart;
+      S.lastVerifiedSlot=lastSlot;
+      S.lastVerifiedTime=lastTime;
+      // Extract QR # before part: everything before #
+      if(lastLabel){
+        const hi=lastLabel.indexOf('#');
+        S.lastVerifiedLabel=hi>0?lastLabel.substring(0,hi):lastLabel;
+      }
+      // Auto-follow: switch to latest cart
+      if(S.autoFollow&&S.cartData.carts[lastCart]){
+        S.selectedCart=lastCart;
+      }
+    }
+    S.verified=v;S.lastPoll=new Date();S.gasError=null;S.gasRows=rows.length;render();
+  }catch(e){
+    S.gasError=e.message||'接続エラー';
+    gasLog('FETCH ERROR',e);render();
+  }
+}
+function startPoll(){if(S.pollTimer)clearInterval(S.pollTimer);if(S.gasUrl){fetchGAS();S.pollTimer=setInterval(fetchGAS,5000)}}
+
+// ===== STATS =====
+function cartStats(cid){
+  const c=S.cartData.carts[cid],skeys=Object.keys(c.slots);
+  const t1=skeys.length,t2c=c.type2.length,total=t1+t2c;
+  const vs=S.verified[cid]||new Set();
+  let d1=0;skeys.forEach(s=>{if(vs.has(parseInt(s)))d1++});
+  let d2=0;for(let i=0;i<t2c;i++){if(vs.has('t2-'+i))d2++}
+  const done=d1+d2;
+  return{t1,t2c,total,done,d1,d2,complete:done>=total&&total>0};
+}
+function allStats(){
+  if(!S.cartData)return{tc:0,dc:0,ti:0,di:0};
+  const ids=Object.keys(S.cartData.carts);
+  let ti=0,di=0,dc=0;
+  ids.forEach(id=>{const s=cartStats(id);ti+=s.total;di+=s.done;if(s.complete)dc++});
+  return{tc:ids.length,dc,ti,di};
+}
+function sortC(ids){return ids.sort((a,b)=>{const[ar,ac]=a.split('_').map(Number);const[br,bc]=b.split('_').map(Number);return ar!==br?ar-br:ac-bc})}
+function fmtD(d){if(!d||d.length!==8)return d;return d.slice(0,4)+'/'+d.slice(4,6)+'/'+d.slice(6,8)}
+
+// ===== RENDER =====
+function render(){
+  const app=document.getElementById('app');
+  if(S.showUpload&&!S.cartData){app.innerHTML=uploadHTML();setupUpload();return}
+  const a=allStats(),pct=a.ti>0?(a.di/a.ti*100):0;
+  const ids=sortC(Object.keys(S.cartData.carts));
+  if(!S.selectedCart||!S.cartData.carts[S.selectedCart])S.selectedCart=ids[0];
+  app.innerHTML=(S.dragging?'<div class="drop-overlay"><div class="drop-overlay-text">📂 CSVファイルをドロップして再読込</div></div>':'')+
+    headerHTML(a)+progressHTML(a,pct)+mobileTabsHTML()+
+    '<div class="main-area">'+leftHTML(ids)+rightHTML(ids)+'</div>'+
+    mobileNavHTML(ids)+(S.showGas?gasModalHTML():'')+
+    '<div class="poll-ind"><span class="pdot '+(S.gasUrl?'on':'off')+'"></span>'+(S.gasUrl?'自動更新':'オフライン')+(S.gasError?' <span style="color:#ef4444">⚠ '+S.gasError+'</span>':'')+(S.gasRows?' ('+S.gasRows+'件)':'')+(S.lastPoll?' | '+S.lastPoll.toLocaleTimeString('ja-JP'):'')+'</div>';
+}
+
+function uploadHTML(){
+  return'<div class="upload-overlay"><div class="upload-card" id="upload-drop">'+
+    '<svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="margin-bottom:12px"><rect width="48" height="48" rx="12" fill="#dbeafe"/><path d="M16 32h16M24 16v12m-4-4l4 4 4-4" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'+
+    '<h2>巣箱照合ダッシュボード</h2><p>CSVファイルを読み込んで<br>本日の積み込み状況を確認</p>'+
+    '<label><input type="file" id="csv-in" accept=".csv"><span class="upload-main-btn">📂 CSVファイルを選択</span></label>'+
+    '<div class="upload-or">または</div>'+
+    '<div class="upload-drop-text">ここにCSVファイルをドラッグ＆ドロップ</div>'+
+    '<div class="upload-hint">形式: 製品情報#日付8桁,台車番号-差込口番号</div></div></div>';
+}
+
+function headerHTML(a){
+  const d=S.cartData.date,now=new Date();
+  const today=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
+  return'<div class="header"><div class="header-logo">'+
+    '<svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="rgba(255,255,255,0.2)"/><path d="M8 22V12l8-5 8 5v10l-8 5-8-5z" stroke="#fff" stroke-width="1.5" fill="none"/><path d="M8 12l8 5 8-5M16 17v10" stroke="#fff" stroke-width="1.5"/></svg>'+
+    '<span class="header-title">巣箱照合</span></div>'+
+    '<div class="header-chips">'+
+    '<span class="chip">発行 <span class="cv">'+today+'</span></span>'+
+    '<span class="chip">梱包 <span class="cv">'+fmtD(d)+'</span></span>'+
+    '<span class="chip hl">台車 <span class="cv">'+a.dc+'/'+a.tc+'台</span></span>'+
+    '<span class="chip hl">製品 <span class="cv">'+a.di+'/'+a.ti+'本</span></span></div>'+
+    '<div class="header-actions"><button class="hdr-btn" onclick="W.showGasM()">⚙ GAS連携</button>'+
+    '<button class="hdr-btn" onclick="W.resetCSV()">📂 CSV再読込</button></div></div>';
+}
+
+function progressHTML(a,pct){
+  return'<div class="progress-section"><div class="progress-bar-outer">'+
+    '<div class="progress-bar-fill'+(pct>=100?' complete':'')+'" style="width:'+pct+'%"></div>'+
+    '<div class="progress-text">'+pct.toFixed(1)+'%　製品照合の進捗</div></div>'+
+    '<div class="progress-stats"><span>台車: '+a.dc+'/'+a.tc+' 完了</span><span>製品: '+a.di+'/'+a.ti+' 照合済み</span></div></div>';
+}
+
+function mobileTabsHTML(){
+  return'<div class="view-tabs">'+
+    '<div class="vtab '+(S.mobileView==='cart'?'active':'')+'" onclick="W.setV(\'cart\')">📦 作業台車</div>'+
+    '<div class="vtab '+(S.mobileView==='all'?'active':'')+'" onclick="W.setV(\'all\')">📊 全台車一覧</div>'+
+    '<div class="vtab" onclick="W.showGasM()">⚙ 設定</div></div>';
+}
+
+function leftHTML(ids){
+  const cid=S.selectedCart,c=S.cartData.carts[cid],st=cartStats(cid);
+  const vs=S.verified[cid]||new Set();
+  const COLS=15,ROWS=17;
+  const hm=S.mobileView!=='cart'?' hm':'';
+
+  // Latest product info for this cart
+  let latestHtml='';
+  if(S.lastVerifiedCart===cid&&S.lastVerifiedLabel){
+    latestHtml='<div class="latest-product">'+
+      '<div><div class="lp-label">最新照合 QR情報</div><div class="lp-value">'+S.lastVerifiedLabel+'</div></div>'+
+      (S.lastVerifiedSlot?'<div class="lp-slot">差込口 #'+S.lastVerifiedSlot+'</div>':'')+
+      (S.lastVerifiedTime?'<div class="lp-time">'+S.lastVerifiedTime+'</div>':'')+
+      '</div>';
+  }else if(S.lastVerifiedLabel){
+    // Show latest even if different cart
+    latestHtml='<div class="latest-product">'+
+      '<div><div class="lp-label">最新照合（台車 '+S.lastVerifiedCart+'）</div><div class="lp-value">'+S.lastVerifiedLabel+'</div></div>'+
+      (S.lastVerifiedSlot?'<div class="lp-slot">#'+S.lastVerifiedSlot+'</div>':'')+
+      (S.lastVerifiedTime?'<div class="lp-time">'+S.lastVerifiedTime+'</div>':'')+
+      '</div>';
+  }
+
+  let grid='';
+  for(let r=0;r<ROWS;r++){for(let col=0;col<COLS;col++){
+    const sn=r*COLS+col+1,sd=c.slots[sn];
+    if(sd){const dn=vs.has(sn);grid+='<div class="lcell '+(dn?'done':'pending')+'" onclick="W.tog(\''+cid+'\','+sn+')">'+sn+'<div class="tip">#'+sn+' '+sd.product+','+sd.num+'</div></div>'}
+    else grid+='<div class="lcell empty"></div>';
+  }}
+
+  let t2='';
+  if(c.type2.length>0){
+    t2='<div class="type2-box"><div class="type2-title">▲ 台車上部（タイプ2: '+c.type2.length+'個）</div><div class="type2-items">'+
+      c.type2.map((t,i)=>'<div class="t2-chip'+(vs.has('t2-'+i)?' done':'')+'" onclick="W.tog(\''+cid+'\',\'t2-'+i+'\')">'+t.product+','+t.num+'</div>').join('')+
+      '</div></div>';
+  }
+  const cp=st.total>0?(st.done/st.total*100).toFixed(0):0;
+
+  return'<div class="left-panel'+hm+'"><div class="current-label">現在の作業台車</div>'+
+    '<div class="current-header"><div class="current-id">'+cid+'</div><div class="current-meta">'+
+    '<span class="current-badge '+(st.complete?'badge-done':'badge-active')+'">'+(st.complete?'✓ 完了':'⏳ 作業中')+'</span>'+
+    '<span class="current-count">'+st.done+' / '+st.total+'（'+cp+'%）</span></div></div>'+
+    latestHtml+t2+
+    '<div class="grid-wrap"><div class="grid-scroll"><div class="large-grid" style="grid-template-columns:repeat('+COLS+',1fr)">'+grid+'</div></div></div>'+
+    '<div class="cart-selector"><div class="cart-sel-row">'+
+    '<div class="cart-sel-title">台車選択</div>'+
+    '<div class="auto-toggle '+(S.autoFollow?'on':'')+'" onclick="W.toggleAuto()">🔄 自動追従 '+(S.autoFollow?'ON':'OFF')+'</div></div>'+
+    '<div class="cart-btns">'+
+    ids.map(id=>{const s=cartStats(id);let cls=id===cid?'active':'';if(s.complete)cls+=' cdone';
+      return'<button class="cbtn '+cls+'" onclick="W.sel(\''+id+'\')">'+id+(s.complete?' ✓':'')+'</button>'}).join('')+
+    '</div></div></div>';
+}
+
+function rightHTML(ids){
+  const hm=S.mobileView!=='all'?' hm':'';
+  return'<div class="right-panel'+hm+'">'+ids.map(cid=>{
+    const c=S.cartData.carts[cid],st=cartStats(cid),vs=S.verified[cid]||new Set();
+    let mg='';for(let r=0;r<17;r++){for(let col=0;col<15;col++){
+      const sn=r*15+col+1,sd=c.slots[sn];
+      mg+='<div class="mcell '+(sd?(vs.has(sn)?'done':'pending'):'empty')+'"></div>';
+    }}
+    const cp=st.total>0?(st.done/st.total*100).toFixed(0):0;
+    const ac=cid===S.selectedCart?'mc-active':'';
+    return'<div class="mini-cart '+(st.complete?'mc-done':'')+' '+ac+'" onclick="W.sel(\''+cid+'\')">'+
+      '<div class="mc-header"><span class="mc-id">'+cid+'</span><span class="mc-badge '+(st.complete?'mcb-done':'mcb-prog')+'">'+(st.complete?'完了':cp+'%')+'</span></div>'+
+      '<div class="mc-stats">T1:'+st.d1+'/'+st.t1+(st.t2c>0?' | T2:'+st.d2+'/'+st.t2c:'')+'</div>'+
+      '<div class="mini-grid" style="grid-template-columns:repeat(15,1fr)">'+mg+'</div></div>';
+  }).join('')+'</div>';
+}
+
+function mobileNavHTML(ids){
+  return'<div class="mobile-nav">'+ids.map(id=>{
+    const s=cartStats(id);const cp=s.total>0?(s.done/s.total*100).toFixed(0):0;
+    let cls=id===S.selectedCart?'active':'';if(s.complete)cls+=' ndone';
+    return'<button class="mnav-btn '+cls+'" onclick="W.sel(\''+id+'\');W.setV(\'cart\')"><span>'+id+'</span><span class="mnav-pct">'+(s.complete?'✓':cp+'%')+'</span></button>';
+  }).join('')+'</div>';
+}
+
+function gasModalHTML(){
+  return'<div class="modal-bg" onclick="W.closeGas(event)"><div class="modal-box" onclick="event.stopPropagation()">'+
+    '<h3>GAS連携設定</h3><p class="desc">Googleスプレッドシートの照合データを自動取得します（5秒間隔）</p>'+
+    '<input type="text" id="gas-input" placeholder="https://script.google.com/macros/s/.../exec" value="'+(S.gasUrl||'')+'">'+
+    '<div style="margin-bottom:10px"><button class="mbtn mbtn-save" style="font-size:11px;padding:5px 14px;background:var(--blue-400)" onclick="W.testGas()">🔍 接続テスト</button>'+
+    '<span id="gas-test-result" style="margin-left:8px;font-size:11px"></span></div>'+
+    '<div class="note">'+
+    '<b>重要:</b><br>'+
+    '1.「デプロイを管理」→ 鉛筆アイコン → バージョン「新バージョン」→「デプロイ」でURLを変えずに更新可能<br>'+
+    '2.「アクセスできるユーザー」→「全員」<br>'+
+    '3. URLの末尾が <code>/exec</code> であること</div>'+
+    '<div class="modal-btns"><button class="mbtn mbtn-cancel" onclick="S.showGas=false;render()">キャンセル</button>'+
+    '<button class="mbtn mbtn-save" onclick="W.saveGas()">保存して接続</button></div></div></div>';
+}
+
+// ===== EVENT SETUP =====
+function setupUpload(){
+  const inp=document.getElementById('csv-in');
+  if(inp)inp.addEventListener('change',e=>{const f=e.target.files[0];if(f)loadCSVFile(f)});
+  // Drag & drop on upload card
+  const dropZone=document.getElementById('upload-drop');
+  if(dropZone){
+    ['dragenter','dragover'].forEach(ev=>dropZone.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();dropZone.classList.add('dragover')}));
+    ['dragleave','drop'].forEach(ev=>dropZone.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();dropZone.classList.remove('dragover')}));
+    dropZone.addEventListener('drop',e=>{
+      const files=e.dataTransfer.files;
+      if(files.length>0)loadCSVFile(files[0]);
+    });
+  }
+}
+
+// Global drag & drop (for re-loading CSV after initial load)
+let dragCounter=0;
+document.addEventListener('dragenter',e=>{e.preventDefault();dragCounter++;if(dragCounter===1&&S.cartData){S.dragging=true;render()}});
+document.addEventListener('dragover',e=>{e.preventDefault()});
+document.addEventListener('dragleave',e=>{e.preventDefault();dragCounter--;if(dragCounter<=0){dragCounter=0;if(S.dragging){S.dragging=false;render()}}});
+document.addEventListener('drop',e=>{
+  e.preventDefault();dragCounter=0;S.dragging=false;
+  const files=e.dataTransfer.files;
+  if(files.length>0&&files[0].name.endsWith('.csv')){
+    S.cartData=null;S.selectedCart=null;S.verified={};
+    loadCSVFile(files[0]);
+  }else{render()}
+});
+
+// ===== HANDLERS =====
+const W={
+  sel(cid){S.selectedCart=cid;S.autoFollow=false;render()},
+  tog(cid,sk){
+    if(!S.verified[cid])S.verified[cid]=new Set();
+    const k=typeof sk==='string'?sk:parseInt(sk);
+    if(S.verified[cid].has(k))S.verified[cid].delete(k);else S.verified[cid].add(k);
+    render();
+  },
+  toggleAuto(){S.autoFollow=!S.autoFollow;render()},
+  showGasM(){S.showGas=true;render()},
+  closeGas(e){if(e.target.classList.contains('modal-bg')){S.showGas=false;render()}},
+  async testGas(){
+    const el=document.getElementById('gas-test-result');
+    const url=(document.getElementById('gas-input')||{}).value||'';
+    if(!url.trim()){el.innerHTML='<span style="color:#ef4444">URLを入力してください</span>';return}
+    el.innerHTML='<span style="color:var(--blue-500)">接続中...</span>';
+    try{
+      const r=await fetch(url.trim()+'?t='+Date.now(),{redirect:'follow'});
+      if(!r.ok){el.innerHTML='<span style="color:#ef4444">HTTP エラー '+r.status+'</span>';return}
+      const text=await r.text();
+      let data;
+      try{data=JSON.parse(text)}catch(pe){el.innerHTML='<span style="color:#ef4444">JSONパースエラー: '+text.substring(0,80)+'</span>';return}
+      const rows=Array.isArray(data)?data:[];
+      if(rows.length===0){el.innerHTML='<span style="color:#f59e0b">接続OK、データ0件</span>';return}
+      el.innerHTML='<span style="color:var(--done)">✓ 接続成功！ '+rows.length+'件取得</span>';
+    }catch(e){el.innerHTML='<span style="color:#ef4444">接続失敗: '+e.message+'</span>'}
+  },
+  saveGas(){
+    const url=(document.getElementById('gas-input')||{}).value||'';
+    S.gasUrl=url.trim();
+    try{localStorage.setItem('subako_gas_url',S.gasUrl)}catch(e){}
+    S.showGas=false;startPoll();render();
+  },
+  resetCSV(){S.cartData=null;S.selectedCart=null;S.verified={};S.showUpload=true;if(S.pollTimer)clearInterval(S.pollTimer);render()},
+  setV(v){S.mobileView=v;render()},
+};
+window.W=W;
+
+render();
+</script>
+</body>
+</html>
