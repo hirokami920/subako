@@ -131,10 +131,16 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 .lcell.pending:hover{background:#c7d8f4}
 .lcell.done:hover{background:#bbf0cc}
 .lcell .tip{
-  display:none;position:fixed;
+  display:none;position:absolute;
   background:var(--blue-800);color:#fff;border-radius:6px;padding:6px 12px;
   white-space:nowrap;font-size:12px;z-index:1000;box-shadow:var(--shadow-lg);pointer-events:none;
 }
+/* Default: show above */
+.lcell .tip.above{bottom:calc(100% + 6px);left:50%;transform:translateX(-50%)}
+.lcell .tip.above::after{content:'';position:absolute;top:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-top-color:var(--blue-800)}
+/* Top rows: show below */
+.lcell .tip.below{top:calc(100% + 6px);left:50%;transform:translateX(-50%)}
+.lcell .tip.below::after{content:'';position:absolute;bottom:100%;left:50%;transform:translateX(-50%);border:5px solid transparent;border-bottom-color:var(--blue-800)}
 .lcell:hover .tip{display:block}
 
 /* Cart selector */
@@ -535,7 +541,8 @@ function leftHTML(ids){
   let grid='';
   for(let r=0;r<ROWS;r++){for(let col=0;col<COLS;col++){
     const sn=r*COLS+col+1,sd=c.slots[sn];
-    if(sd){const dn=vs.has(sn);grid+='<div class="lcell '+(dn?'done':'pending')+'" onclick="W.tog(\''+cid+'\','+sn+')">'+sn+'<div class="tip">#'+sn+' '+sd.product+','+sd.num+'</div></div>'}
+    const tipPos=r<3?'below':'above';
+    if(sd){const dn=vs.has(sn);grid+='<div class="lcell '+(dn?'done':'pending')+'" onclick="W.tog(\''+cid+'\','+sn+')">'+sn+'<div class="tip '+tipPos+'">#'+sn+' '+sd.product+','+sd.num+'</div></div>'}
     else grid+='<div class="lcell empty"></div>';
   }}
 
@@ -672,30 +679,6 @@ const W={
 window.W=W;
 
 render();
-
-// Tooltip positioning — uses fixed position so it never gets clipped
-document.addEventListener('mouseover',function(e){
-  const cell=e.target.closest('.lcell');
-  if(!cell)return;
-  const tip=cell.querySelector('.tip');
-  if(!tip)return;
-  const rect=cell.getBoundingClientRect();
-  // Temporarily show to measure
-  tip.style.visibility='hidden';tip.style.display='block';
-  const tipW=tip.offsetWidth;const tipH=tip.offsetHeight;
-  tip.style.visibility='';
-  // Horizontal center
-  let left=rect.left+rect.width/2-tipW/2;
-  if(left<4)left=4;
-  if(left+tipW>window.innerWidth-4)left=window.innerWidth-tipW-4;
-  tip.style.left=left+'px';
-  // Vertical: below if near top, above otherwise
-  if(rect.top<100){
-    tip.style.top=(rect.bottom+6)+'px';tip.style.bottom='auto';
-  }else{
-    tip.style.bottom=(window.innerHeight-rect.top+6)+'px';tip.style.top='auto';
-  }
-});
 </script>
 </body>
 </html>
