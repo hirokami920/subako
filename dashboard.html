@@ -10,7 +10,7 @@
 :root{
   --blue-50:#eff6ff;--blue-100:#dbeafe;--blue-200:#bfdbfe;--blue-300:#93c5fd;
   --blue-400:#60a5fa;--blue-500:#3b82f6;--blue-600:#2563eb;--blue-700:#1d4ed8;
-  --blue-800:#1e40af;--blue-900:#1e3a5f;
+  --blue-800:#1e40af;
   --bg:#f0f5fa;--bg-card:#ffffff;
   --text:#1a2b3c;--text2:#5a7088;--text3:#94a8bc;
   --border:#d4e2f0;--border-light:#e8f0f8;
@@ -35,7 +35,6 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
   box-shadow:0 2px 12px rgba(30,64,120,0.25);position:relative;z-index:10;flex-wrap:wrap;
 }
 .header-logo{display:flex;align-items:center;gap:10px}
-.header-logo svg{width:32px;height:32px;flex-shrink:0}
 .header-title{font-size:22px;font-weight:900;color:#fff;letter-spacing:0.5px;white-space:nowrap}
 .header-chips{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1}
 .chip{
@@ -61,7 +60,6 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
   background:linear-gradient(90deg,#15803d,#16a34a,#22c55e);
   transition:width 0.8s cubic-bezier(0.22,1,0.36,1);position:relative;
 }
-.progress-bar-fill.complete{background:linear-gradient(90deg,#15803d,#16a34a,#22c55e)}
 .progress-bar-fill::after{
   content:'';position:absolute;inset:0;
   background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);
@@ -78,7 +76,7 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 /* MAIN */
 .main-area{display:flex;flex:1;overflow:hidden}
 
-/* LEFT — enlarged */
+/* LEFT */
 .left-panel{
   width:45%;max-width:680px;flex-shrink:0;overflow-y:auto;
   padding:16px 20px;background:var(--bg-card);border-right:1px solid var(--border-light);
@@ -106,7 +104,7 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 
 /* Type2 */
 .type2-box{background:var(--blue-50);border:1px solid var(--blue-200);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:8px}
-.type2-title{font-size:13px;font-weight:700;color:var(--blue-700);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.5px}
+.type2-title{font-size:13px;font-weight:700;color:var(--blue-700);margin-bottom:5px}
 .type2-items{display:flex;flex-wrap:wrap;gap:4px}
 .t2-chip{
   background:var(--pending-bg);border:1px solid var(--pending-border);
@@ -131,7 +129,6 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 .lcell.pending:hover{background:#c7d8f4}
 .lcell.done:hover{background:#bbf0cc}
 .lcell .tip{display:none}
-/* Global tooltip */
 #gtip{
   position:fixed;background:var(--blue-800);color:#fff;border-radius:6px;padding:6px 12px;
   white-space:nowrap;font-size:12px;z-index:10000;box-shadow:var(--shadow-lg);pointer-events:none;
@@ -140,7 +137,7 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 
 /* Cart selector */
 .cart-selector{margin-top:10px;flex-shrink:0}
-.cart-sel-title{font-size:13px;color:var(--text3);font-weight:600;margin-bottom:5px;text-transform:uppercase;letter-spacing:0.5px}
+.cart-sel-title{font-size:13px;color:var(--text3);font-weight:600;margin-bottom:5px}
 .cart-sel-row{display:flex;align-items:center;gap:8px}
 .auto-toggle{
   display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text3);
@@ -183,54 +180,74 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 .mcell.pending{background:var(--blue-300)}
 .mcell.done{background:var(--done)}
 
-/* UPLOAD — with drag & drop */
-.upload-overlay{position:fixed;inset:0;background:linear-gradient(135deg,var(--blue-50),#fff,var(--blue-100));display:flex;align-items:center;justify-content:center;z-index:1000}
-.upload-card{
-  background:var(--bg-card);border-radius:20px;padding:48px;text-align:center;
-  box-shadow:var(--shadow-lg);border:2px dashed var(--border);max-width:480px;width:90%;
-  transition:all 0.3s;
+/* SETUP SCREEN (initial GAS URL config) */
+.setup-screen{
+  position:fixed;inset:0;background:linear-gradient(135deg,var(--blue-50),#fff,var(--blue-100));
+  display:flex;align-items:center;justify-content:center;z-index:1000;
 }
-.upload-card.dragover{border-color:var(--blue-500);background:var(--blue-50);transform:scale(1.02)}
-.upload-card h2{font-size:22px;font-weight:900;color:var(--blue-700);margin-bottom:6px}
-.upload-card p{color:var(--text2);font-size:14px;margin-bottom:24px;line-height:1.6}
-.upload-main-btn{
+.setup-card{
+  background:var(--bg-card);border-radius:20px;padding:40px;text-align:center;
+  box-shadow:var(--shadow-lg);border:1px solid var(--border);max-width:520px;width:92%;
+}
+.setup-card h2{font-size:22px;font-weight:900;color:var(--blue-700);margin-bottom:8px}
+.setup-card p{color:var(--text2);font-size:13px;margin-bottom:20px;line-height:1.6}
+.setup-card input{
+  width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:12px;color:var(--text);font-size:13px;font-family:var(--font-mono);margin-bottom:10px;
+}
+.setup-card input:focus{outline:none;border-color:var(--blue-400);box-shadow:0 0 0 3px var(--blue-100)}
+.setup-btn{
   display:inline-flex;align-items:center;gap:8px;
   background:linear-gradient(135deg,var(--blue-600),var(--blue-500));
-  color:#fff;border:none;border-radius:var(--radius);padding:14px 36px;
+  color:#fff;border:none;border-radius:var(--radius);padding:12px 32px;
   font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font-body);
   box-shadow:0 4px 14px rgba(37,99,235,0.35);transition:all 0.2s;
 }
-.upload-main-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(37,99,235,0.45)}
-.upload-or{margin:16px 0;font-size:12px;color:var(--text3)}
-.upload-drop-text{font-size:13px;color:var(--blue-500);font-weight:600}
-.upload-hint{margin-top:16px;font-size:11px;color:var(--text3)}
-input[type=file]{display:none}
+.setup-btn:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(37,99,235,0.45)}
+.setup-result{margin-top:12px;font-size:12px;min-height:20px}
+.setup-hint{font-size:10px;color:var(--text3);margin-top:8px;line-height:1.5}
 
-/* Full-page drop zone overlay (when dragging over the whole page after CSV loaded) */
-.drop-overlay{
-  position:fixed;inset:0;background:rgba(37,99,235,0.1);backdrop-filter:blur(2px);
-  border:4px dashed var(--blue-400);z-index:999;display:flex;align-items:center;justify-content:center;
-  pointer-events:none;
+/* Loading overlay */
+.loading-overlay{
+  position:fixed;inset:0;background:rgba(255,255,255,0.9);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;z-index:999;gap:12px;
 }
-.drop-overlay-text{background:var(--bg-card);padding:20px 40px;border-radius:var(--radius);font-size:18px;font-weight:700;color:var(--blue-600);box-shadow:var(--shadow-lg)}
+.spinner{width:40px;height:40px;border:4px solid var(--blue-100);border-top-color:var(--blue-500);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:14px;color:var(--text2);font-weight:600}
 
-/* GAS MODAL */
+/* No data state */
+.nodata{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;gap:12px;color:var(--text2);
+}
+.nodata-icon{font-size:48px}
+.nodata-text{font-size:16px;font-weight:700}
+.nodata-sub{font-size:12px;color:var(--text3);text-align:center;line-height:1.6}
+
+/* Modal */
 .modal-bg{position:fixed;inset:0;background:rgba(30,58,95,0.4);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:1000}
 .modal-box{background:var(--bg-card);border-radius:var(--radius);padding:28px;width:520px;max-width:92vw;box-shadow:var(--shadow-lg);border:1px solid var(--border);max-height:90vh;overflow-y:auto}
-.modal-box h3{font-size:17px;font-weight:800;color:var(--blue-700);margin-bottom:6px}
+.modal-box h3{font-size:17px;font-weight:800;color:var(--blue-700);margin-bottom:8px}
 .modal-box .desc{font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6}
-.modal-box input{
+.modal-box input[type=text]{
   width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
   padding:10px 12px;color:var(--text);font-size:13px;font-family:var(--font-mono);margin-bottom:6px;
 }
-.modal-box input:focus{outline:none;border-color:var(--blue-400);box-shadow:0 0 0 3px var(--blue-100)}
-.modal-box .note{font-size:10px;color:var(--text3);margin-bottom:14px;line-height:1.6}
-.modal-box .note code{background:var(--blue-50);padding:1px 4px;border-radius:3px;font-family:var(--font-mono);font-size:9px}
-.modal-btns{display:flex;gap:8px;justify-content:flex-end}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
 .mbtn{padding:8px 20px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-family:var(--font-body);font-weight:700;font-size:13px;transition:all 0.15s}
 .mbtn-save{background:var(--blue-600);color:#fff}
 .mbtn-save:hover{background:var(--blue-700)}
 .mbtn-cancel{background:var(--bg);color:var(--text2);border:1px solid var(--border) !important}
+
+/* CSV upload area in modal */
+.csv-drop{
+  border:2px dashed var(--border);border-radius:var(--radius-sm);padding:20px;text-align:center;
+  color:var(--text3);font-size:13px;cursor:pointer;transition:all 0.2s;margin-bottom:12px;
+}
+.csv-drop.over{border-color:var(--blue-400);background:var(--blue-50);color:var(--blue-600)}
+.csv-drop input{display:none}
+.csv-status{font-size:12px;margin-top:8px;min-height:18px}
 
 /* POLL */
 .poll-ind{
@@ -283,10 +300,7 @@ input[type=file]{display:none}
   .vtab.active{color:var(--blue-600);border-bottom-color:var(--blue-500)}
   .left-panel.hm,.right-panel.hm{display:none !important}
 }
-@media(min-width:769px){
-  .mobile-nav{display:none}
-  .view-tabs{display:none}
-}
+@media(min-width:769px){.mobile-nav{display:none}.view-tabs{display:none}}
 
 *::-webkit-scrollbar{width:5px;height:5px}
 *::-webkit-scrollbar-track{background:transparent}
@@ -296,8 +310,10 @@ input[type=file]{display:none}
 <body>
 <div id="app"></div>
 <script>
-// ===== CSV =====
-function parseCSV(text){
+// ============================================================
+// CSV PARSING
+// ============================================================
+function parseCSVText(text){
   const lines=text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
   if(lines.length<2)return null;
   const items=[];
@@ -316,6 +332,26 @@ function parseCSV(text){
   }
   return items;
 }
+
+// Parse CSV rows from GAS (array of arrays, each row is [labelQR])
+function parseCSVFromGAS(rows){
+  const items=[];
+  rows.forEach(row=>{
+    const line=String(row[0]||'').replace(/"/g,'').trim();
+    if(!line)return;
+    const hi=line.indexOf('#');
+    if(hi<0)return;
+    const before=line.substring(0,hi),after=line.substring(hi+1);
+    const pp=before.split(','),ap=after.split(',');
+    const date=ap[0]||'',ci=(ap[1]||'').trim();
+    let cart,slot,type;
+    if(ci.includes('-')){const s=ci.split('-');cart=s[0];slot=parseInt(s[1]);type=1}
+    else{cart=ci;slot=-1;type=2}
+    items.push({product:pp[0]||'',num:pp[1]||'',date,cart,slot,type});
+  });
+  return items.length>0?items:null;
+}
+
 function buildCartData(items){
   const carts={};let date='';
   items.forEach(it=>{
@@ -326,118 +362,146 @@ function buildCartData(items){
   });
   return{carts,date,totalItems:items.length};
 }
-function loadCSVFile(file){
-  const rd=new FileReader();
-  rd.onload=ev=>{
-    const items=parseCSV(ev.target.result);
-    if(items&&items.length>0){S.cartData=buildCartData(items);S.showUpload=false;S.dragging=false;startPoll();render()}
-    else alert('CSV解析に失敗しました。形式を確認してください。');
-  };
-  rd.readAsText(file,'Shift_JIS');
-}
 
-// ===== STATE =====
+// ============================================================
+// STATE
+// ============================================================
 const S={
   cartData:null,selectedCart:null,verified:{},
-  gasUrl:null,pollTimer:null,lastPoll:null,gasError:null,gasRows:0,
-  showUpload:true,showGas:false,mobileView:'cart',
-  autoFollow:true, // auto-switch to latest cart
+  gasUrl:'',pollTimer:null,lastPoll:null,gasError:null,gasRows:0,
+  phase:'init', // 'init' | 'setup' | 'loading' | 'nodata' | 'dashboard'
+  showCsvModal:false,showSettingsModal:false,
+  mobileView:'cart',autoFollow:true,
   lastVerifiedCart:null,lastVerifiedLabel:null,lastVerifiedSlot:null,lastVerifiedTime:null,
-  dragging:false,
+  csvUploading:false,
 };
 try{S.gasUrl=localStorage.getItem('subako_gas_url')||''}catch(e){}
 
-// ===== GAS =====
-function gasLog(msg,data){console.log('[GAS]',msg,data||'')}
+// ============================================================
+// GAS COMMUNICATION
+// ============================================================
+async function gasFetch(type){
+  if(!S.gasUrl)return null;
+  const sep=S.gasUrl.includes('?')?'&':'?';
+  const url=S.gasUrl+sep+'type='+type+'&t='+Date.now();
+  const r=await fetch(url,{redirect:'follow'});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return r.json();
+}
 
-async function fetchGAS(){
-  if(!S.gasUrl||!S.cartData){return}
+async function gasPost(body){
+  if(!S.gasUrl)throw new Error('GAS URL未設定');
+  const r=await fetch(S.gasUrl,{
+    method:'POST',redirect:'follow',
+    headers:{'Content-Type':'text/plain'},
+    body:JSON.stringify(body)
+  });
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return r.json();
+}
+
+// Load both CSV + verify data
+async function loadAll(){
   try{
-    const sep=S.gasUrl.includes('?')?'&':'?';
-    const r=await fetch(S.gasUrl+sep+'t='+Date.now(),{redirect:'follow'});
-    if(!r.ok){S.gasError='HTTP '+r.status;render();return}
-    const text=await r.text();
-    let data;
-    try{data=JSON.parse(text)}catch(pe){S.gasError='JSONパースエラー';render();return}
-    if(!data){S.gasError='空のレスポンス';render();return}
-    const v={};
-    let rows=Array.isArray(data)?data:(data.data||data.values||[]);
-    let lastCart=null,lastLabel=null,lastSlot=null,lastTime=null;
-    let parsed=0;
-    rows.forEach((row,ri)=>{
-      let cartId=null,slotNum=null,productLabel=null,rowTime=null;
-      if(Array.isArray(row)){
-        // Time from col 0
-        rowTime=row[0]?String(row[0]):'';
-        // Strategy 1: 製品ラベル col3
-        const label=String(row[3]||'').trim();
-        productLabel=label;
-        let m=label.match(/#\d{8},(\d+_\d+)(?:-(\d+))?/);
-        if(m){cartId=m[1];slotNum=m[2]?parseInt(m[2]):null}
-        // Strategy 2: 抽出巣箱 col4 + 抽出差込口 col5
-        if(!cartId){
-          const rawCart=String(row[4]||'').trim();
-          const rawSlot=String(row[5]||'').trim();
-          const cm=rawCart.match(/(\d+_\d+)/);
-          if(cm)cartId=cm[1];
-          if(cartId){const rs=parseInt(rawSlot);if(!isNaN(rs)&&rs>0)slotNum=rs}
-        }
-        // Strategy 3: col B + col C
-        if(!cartId){
-          const colB=String(row[1]||'').trim();
-          const colC=String(row[2]||'').trim();
-          const bm=colB.match(/(\d+_\d+)/);
-          if(bm)cartId=bm[1];
-          else{const am=String(row[3]||'').match(/(\d+_\d+)(?:-(\d+))?/);if(am){cartId=am[1];slotNum=am[2]?parseInt(am[2]):null}}
-          if(cartId&&!slotNum){const cs=parseInt(colC);if(!isNaN(cs)&&cs>0)slotNum=cs}
-        }
-      }else if(typeof row==='object'){
-        const label=row['製品ラベル']||row.label||row.qr||'';
-        productLabel=String(label);
-        let m=String(label).match(/#\d{8},(\d+_\d+)(?:-(\d+))?/);
-        if(m){cartId=m[1];slotNum=m[2]?parseInt(m[2]):null}
-        if(!cartId){
-          const rc=String(row['抽出巣箱']||row.cart||'');
-          const cm=rc.match(/(\d+_\d+)/);if(cm)cartId=cm[1];
-          const rs=row['抽出差込口']||row.slot||'';
-          if(cartId&&rs){const n=parseInt(rs);if(!isNaN(n)&&n>0)slotNum=n}
-        }
-        rowTime=row['日時']||row.time||'';
-      }
-      if(cartId){
-        if(!v[cartId])v[cartId]=new Set();
-        if(slotNum!==null&&!isNaN(slotNum)&&slotNum>0){v[cartId].add(slotNum)}
-        else{let idx=0;while(v[cartId].has('t2-'+idx))idx++;v[cartId].add('t2-'+idx)}
-        // Track last verified for auto-follow
-        lastCart=cartId;lastSlot=slotNum;lastLabel=productLabel;lastTime=rowTime;
-        parsed++;
-      }
-    });
-    gasLog('parsed '+parsed+'/'+rows.length);
-    // Update last verified info
-    if(lastCart){
-      S.lastVerifiedCart=lastCart;
-      S.lastVerifiedSlot=lastSlot;
-      S.lastVerifiedTime=lastTime;
-      // Extract QR # before part: everything before #
-      if(lastLabel){
-        const hi=lastLabel.indexOf('#');
-        S.lastVerifiedLabel=hi>0?lastLabel.substring(0,hi):lastLabel;
-      }
-      // Auto-follow: switch to latest cart
-      if(S.autoFollow&&S.cartData.carts[lastCart]){
-        S.selectedCart=lastCart;
-      }
+    const data=await gasFetch('both');
+    // CSV data
+    if(data.csv&&data.csv.status==='ok'&&data.csv.data&&data.csv.data.length>0){
+      // First row might be header "ラベルQR"
+      let rows=data.csv.data;
+      if(rows[0]&&String(rows[0][0]).includes('ラベル'))rows=rows.slice(1);
+      const items=parseCSVFromGAS(rows);
+      if(items)S.cartData=buildCartData(items);
     }
-    S.verified=v;S.lastPoll=new Date();S.gasError=null;S.gasRows=rows.length;render();
+    // Verify data
+    if(data.verify){
+      parseVerifyRows(data.verify);
+    }
+    S.gasError=null;
+    S.lastPoll=new Date();
+    if(S.cartData){
+      S.phase='dashboard';
+    }else{
+      S.phase='nodata';
+    }
   }catch(e){
-    S.gasError=e.message||'接続エラー';
-    gasLog('FETCH ERROR',e);render();
+    console.warn('loadAll error:',e);
+    S.gasError=e.message;
+    if(!S.cartData)S.phase='nodata';
+  }
+  render();
+}
+
+// Poll verify data only (every 5s)
+async function pollVerify(){
+  if(!S.gasUrl||!S.cartData)return;
+  try{
+    const data=await gasFetch('verify');
+    if(Array.isArray(data)){
+      parseVerifyRows(data);
+      S.lastPoll=new Date();S.gasError=null;
+      S.gasRows=data.length;
+    }
+    render();
+  }catch(e){
+    S.gasError=e.message;render();
   }
 }
-function startPoll(){if(S.pollTimer)clearInterval(S.pollTimer);if(S.gasUrl){fetchGAS();S.pollTimer=setInterval(fetchGAS,5000)}}
 
-// ===== STATS =====
+function parseVerifyRows(rows){
+  const v={};
+  let lastCart=null,lastLabel=null,lastSlot=null,lastTime=null;
+  rows.forEach(row=>{
+    let cartId=null,slotNum=null,productLabel=null,rowTime=null;
+    if(Array.isArray(row)){
+      rowTime=row[0]?String(row[0]):'';
+      const label=String(row[3]||'').trim();
+      productLabel=label;
+      let m=label.match(/#\d{8},(\d+_\d+)(?:-(\d+))?/);
+      if(m){cartId=m[1];slotNum=m[2]?parseInt(m[2]):null}
+      if(!cartId){
+        const rawCart=String(row[4]||'').trim();
+        const rawSlot=String(row[5]||'').trim();
+        const cm=rawCart.match(/(\d+_\d+)/);
+        if(cm)cartId=cm[1];
+        if(cartId){const rs=parseInt(rawSlot);if(!isNaN(rs)&&rs>0)slotNum=rs}
+      }
+      if(!cartId){
+        const colB=String(row[1]||'').trim();
+        const colC=String(row[2]||'').trim();
+        const bm=colB.match(/(\d+_\d+)/);
+        if(bm)cartId=bm[1];
+        else{const am=String(row[3]||'').match(/(\d+_\d+)(?:-(\d+))?/);if(am){cartId=am[1];slotNum=am[2]?parseInt(am[2]):null}}
+        if(cartId&&!slotNum){const cs=parseInt(colC);if(!isNaN(cs)&&cs>0)slotNum=cs}
+      }
+    }else if(typeof row==='object'){
+      const label=row['製品ラベル']||row.label||row.qr||'';
+      productLabel=String(label);
+      let m=String(label).match(/#\d{8},(\d+_\d+)(?:-(\d+))?/);
+      if(m){cartId=m[1];slotNum=m[2]?parseInt(m[2]):null}
+    }
+    if(cartId){
+      if(!v[cartId])v[cartId]=new Set();
+      if(slotNum!==null&&!isNaN(slotNum)&&slotNum>0)v[cartId].add(slotNum);
+      else{let idx=0;while(v[cartId].has('t2-'+idx))idx++;v[cartId].add('t2-'+idx)}
+      lastCart=cartId;lastSlot=slotNum;lastLabel=productLabel;lastTime=rowTime;
+    }
+  });
+  S.verified=v;
+  if(lastCart){
+    S.lastVerifiedCart=lastCart;S.lastVerifiedSlot=lastSlot;S.lastVerifiedTime=lastTime;
+    if(lastLabel){const hi=lastLabel.indexOf('#');S.lastVerifiedLabel=hi>0?lastLabel.substring(0,hi):lastLabel}
+    if(S.autoFollow&&S.cartData&&S.cartData.carts[lastCart])S.selectedCart=lastCart;
+  }
+}
+
+function startPoll(){
+  if(S.pollTimer)clearInterval(S.pollTimer);
+  if(S.gasUrl)S.pollTimer=setInterval(pollVerify,5000);
+}
+
+// ============================================================
+// STATS
+// ============================================================
 function cartStats(cid){
   const c=S.cartData.carts[cid],skeys=Object.keys(c.slots);
   const t1=skeys.length,t2c=c.type2.length,total=t1+t2c;
@@ -457,48 +521,83 @@ function allStats(){
 function sortC(ids){return ids.sort((a,b)=>{const[ar,ac]=a.split('_').map(Number);const[br,bc]=b.split('_').map(Number);return ar!==br?ar-br:ac-bc})}
 function fmtD(d){if(!d||d.length!==8)return d;return d.slice(0,4)+'/'+d.slice(4,6)+'/'+d.slice(6,8)}
 
-// ===== RENDER =====
+// ============================================================
+// RENDER
+// ============================================================
 function render(){
   const app=document.getElementById('app');
-  if(S.showUpload&&!S.cartData){app.innerHTML=uploadHTML();setupUpload();return}
+
+  if(S.phase==='init'||S.phase==='setup'){
+    app.innerHTML=setupHTML();setupHandlers();return;
+  }
+  if(S.phase==='loading'){
+    app.innerHTML='<div class="loading-overlay"><div class="spinner"></div><div class="loading-text">データを読み込み中...</div></div>';
+    return;
+  }
+  if(S.phase==='nodata'){
+    app.innerHTML=nodataHTML();return;
+  }
+
+  // Dashboard
   const a=allStats(),pct=a.ti>0?(a.di/a.ti*100):0;
   const ids=sortC(Object.keys(S.cartData.carts));
   if(!S.selectedCart||!S.cartData.carts[S.selectedCart])S.selectedCart=ids[0];
-  app.innerHTML=(S.dragging?'<div class="drop-overlay"><div class="drop-overlay-text">📂 CSVファイルをドロップして再読込</div></div>':'')+
-    headerHTML(a)+progressHTML(a,pct)+mobileTabsHTML()+
+
+  app.innerHTML=headerHTML(a)+progressHTML(a,pct)+mobileTabsHTML()+
     '<div class="main-area">'+leftHTML(ids)+rightHTML(ids)+'</div>'+
-    mobileNavHTML(ids)+(S.showGas?gasModalHTML():'')+
-    '<div class="poll-ind"><span class="pdot '+(S.gasUrl?'on':'off')+'"></span>'+(S.gasUrl?'自動更新':'オフライン')+(S.gasError?' <span style="color:#ef4444">⚠ '+S.gasError+'</span>':'')+(S.gasRows?' ('+S.gasRows+'件)':'')+(S.lastPoll?' | '+S.lastPoll.toLocaleTimeString('ja-JP'):'')+'</div>';
+    mobileNavHTML(ids)+
+    (S.showCsvModal?csvModalHTML():'')+
+    (S.showSettingsModal?settingsModalHTML():'')+
+    '<div class="poll-ind"><span class="pdot '+(S.gasUrl?'on':'off')+'"></span>'+(S.gasUrl?'自動更新':'')+(S.gasError?' <span style="color:#ef4444">⚠'+S.gasError+'</span>':'')+(S.gasRows?' ('+S.gasRows+'件)':'')+(S.lastPoll?' | '+S.lastPoll.toLocaleTimeString('ja-JP'):'')+'</div>';
 }
 
-function uploadHTML(){
-  return'<div class="upload-overlay"><div class="upload-card" id="upload-drop">'+
-    '<svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="margin-bottom:12px"><rect width="48" height="48" rx="12" fill="#dbeafe"/><path d="M16 32h16M24 16v12m-4-4l4 4 4-4" stroke="#2563eb" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'+
-    '<h2>巣箱照合ダッシュボード</h2><p>CSVファイルを読み込んで<br>本日の積み込み状況を確認</p>'+
-    '<label><input type="file" id="csv-in" accept=".csv"><span class="upload-main-btn">📂 CSVファイルを選択</span></label>'+
-    '<div class="upload-or">または</div>'+
-    '<div class="upload-drop-text">ここにCSVファイルをドラッグ＆ドロップ</div>'+
-    '<div class="upload-hint">形式: 製品情報#日付8桁,台車番号-差込口番号</div></div></div>';
+function setupHTML(){
+  return'<div class="setup-screen"><div class="setup-card">'+
+    '<svg width="48" height="48" viewBox="0 0 48 48" fill="none" style="margin-bottom:12px"><rect width="48" height="48" rx="12" fill="#dbeafe"/><path d="M8 34V18l16-8 16 8v16l-16 8-16-8z" stroke="#2563eb" stroke-width="2" fill="none"/><path d="M8 18l16 8 16-8M24 26v16" stroke="#2563eb" stroke-width="2"/></svg>'+
+    '<h2>巣箱照合ダッシュボード</h2>'+
+    '<p>GAS URLを設定して接続してください<br>以降はURLを開くだけで進捗を確認できます</p>'+
+    '<input type="text" id="setup-url" placeholder="https://script.google.com/macros/s/.../exec" value="'+(S.gasUrl||'')+'">'+
+    '<button class="setup-btn" onclick="W.connect()">接続</button>'+
+    '<div class="setup-result" id="setup-result"></div>'+
+    '<div class="setup-hint">※ GASのdoGetにtype=bothパラメータ対応が必要です</div>'+
+    '</div></div>';
+}
+
+function nodataHTML(){
+  return headerHTMLSimple()+
+    '<div class="nodata">'+
+    '<div class="nodata-icon">📦</div>'+
+    '<div class="nodata-text">巣箱CSVデータがまだアップロードされていません</div>'+
+    '<div class="nodata-sub">ヘッダーの「📂 CSV更新」ボタンからCSVをアップロードしてください<br>アップロード後は全デバイスで自動的に表示されます</div>'+
+    '<button class="setup-btn" style="margin-top:12px" onclick="W.showCsv()">📂 CSVをアップロード</button>'+
+    '</div>'+(S.showCsvModal?csvModalHTML():'')+(S.showSettingsModal?settingsModalHTML():'');
+}
+
+function headerHTMLSimple(){
+  return'<div class="header"><div class="header-logo"><span class="header-title">巣箱照合</span></div>'+
+    '<div class="header-chips"></div>'+
+    '<div class="header-actions">'+
+    '<button class="hdr-btn" onclick="W.showCsv()">📂 CSV更新</button>'+
+    '<button class="hdr-btn" onclick="W.showSettings()">⚙ 設定</button></div></div>';
 }
 
 function headerHTML(a){
   const d=S.cartData.date,now=new Date();
   const today=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
-  return'<div class="header"><div class="header-logo">'+
-    '<svg viewBox="0 0 32 32" fill="none"><rect width="32" height="32" rx="8" fill="rgba(255,255,255,0.2)"/><path d="M8 22V12l8-5 8 5v10l-8 5-8-5z" stroke="#fff" stroke-width="1.5" fill="none"/><path d="M8 12l8 5 8-5M16 17v10" stroke="#fff" stroke-width="1.5"/></svg>'+
-    '<span class="header-title">巣箱照合</span></div>'+
+  return'<div class="header"><div class="header-logo"><span class="header-title">巣箱照合</span></div>'+
     '<div class="header-chips">'+
     '<span class="chip">発行 <span class="cv">'+today+'</span></span>'+
     '<span class="chip">梱包 <span class="cv">'+fmtD(d)+'</span></span>'+
     '<span class="chip hl">台車 <span class="cv">'+a.dc+'/'+a.tc+'台</span></span>'+
     '<span class="chip hl">製品 <span class="cv">'+a.di+'/'+a.ti+'本</span></span></div>'+
-    '<div class="header-actions"><button class="hdr-btn" onclick="W.showGasM()">⚙ GAS連携</button>'+
-    '<button class="hdr-btn" onclick="W.resetCSV()">📂 CSV再読込</button></div></div>';
+    '<div class="header-actions">'+
+    '<button class="hdr-btn" onclick="W.showCsv()">📂 CSV更新</button>'+
+    '<button class="hdr-btn" onclick="W.showSettings()">⚙ 設定</button></div></div>';
 }
 
 function progressHTML(a,pct){
   return'<div class="progress-section"><div class="progress-bar-outer">'+
-    '<div class="progress-bar-fill'+(pct>=100?' complete':'')+'" style="width:'+pct+'%"></div>'+
+    '<div class="progress-bar-fill" style="width:'+pct+'%"></div>'+
     '<div class="progress-text">'+pct.toFixed(1)+'%　製品照合の進捗</div></div>'+
     '<div class="progress-stats"><span>台車: '+a.dc+'/'+a.tc+' 完了</span><span>製品: '+a.di+'/'+a.ti+' 照合済み</span></div></div>';
 }
@@ -507,7 +606,8 @@ function mobileTabsHTML(){
   return'<div class="view-tabs">'+
     '<div class="vtab '+(S.mobileView==='cart'?'active':'')+'" onclick="W.setV(\'cart\')">📦 作業台車</div>'+
     '<div class="vtab '+(S.mobileView==='all'?'active':'')+'" onclick="W.setV(\'all\')">📊 全台車一覧</div>'+
-    '<div class="vtab" onclick="W.showGasM()">⚙ 設定</div></div>';
+    '<div class="vtab" onclick="W.showCsv()">📂 CSV</div>'+
+    '<div class="vtab" onclick="W.showSettings()">⚙</div></div>';
 }
 
 function leftHTML(ids){
@@ -515,51 +615,34 @@ function leftHTML(ids){
   const vs=S.verified[cid]||new Set();
   const COLS=15,ROWS=17;
   const hm=S.mobileView!=='cart'?' hm':'';
-
-  // Latest product info for this cart
   let latestHtml='';
   if(S.lastVerifiedCart===cid&&S.lastVerifiedLabel){
-    latestHtml='<div class="latest-product">'+
-      '<div><div class="lp-label">最新照合 QR情報</div><div class="lp-value">'+S.lastVerifiedLabel+'</div></div>'+
-      (S.lastVerifiedSlot?'<div class="lp-slot">差込口 #'+S.lastVerifiedSlot+'</div>':'')+
-      (S.lastVerifiedTime?'<div class="lp-time">'+S.lastVerifiedTime+'</div>':'')+
-      '</div>';
+    latestHtml='<div class="latest-product"><div><div class="lp-label">最新照合 QR情報</div><div class="lp-value">'+S.lastVerifiedLabel+'</div></div>'+(S.lastVerifiedSlot?'<div class="lp-slot">差込口 #'+S.lastVerifiedSlot+'</div>':'')+(S.lastVerifiedTime?'<div class="lp-time">'+S.lastVerifiedTime+'</div>':'')+'</div>';
   }else if(S.lastVerifiedLabel){
-    // Show latest even if different cart
-    latestHtml='<div class="latest-product">'+
-      '<div><div class="lp-label">最新照合（台車 '+S.lastVerifiedCart+'）</div><div class="lp-value">'+S.lastVerifiedLabel+'</div></div>'+
-      (S.lastVerifiedSlot?'<div class="lp-slot">#'+S.lastVerifiedSlot+'</div>':'')+
-      (S.lastVerifiedTime?'<div class="lp-time">'+S.lastVerifiedTime+'</div>':'')+
-      '</div>';
+    latestHtml='<div class="latest-product"><div><div class="lp-label">最新照合（台車 '+S.lastVerifiedCart+'）</div><div class="lp-value">'+S.lastVerifiedLabel+'</div></div>'+(S.lastVerifiedSlot?'<div class="lp-slot">#'+S.lastVerifiedSlot+'</div>':'')+(S.lastVerifiedTime?'<div class="lp-time">'+S.lastVerifiedTime+'</div>':'')+'</div>';
   }
-
   let grid='';
   for(let r=0;r<ROWS;r++){for(let col=0;col<COLS;col++){
     const sn=r*COLS+col+1,sd=c.slots[sn];
     const tipPos=r<3?'below':'above';
-    if(sd){const dn=vs.has(sn);grid+='<div class="lcell '+(dn?'done':'pending')+'" onclick="W.tog(\''+cid+'\','+sn+')">'+sn+'<div class="tip '+tipPos+'">#'+sn+' '+sd.product+','+sd.num+'</div></div>'}
+    if(sd){const dn=vs.has(sn);grid+='<div class="lcell '+(dn?'done':'pending')+'" onclick="W.tog(\''+cid+'\','+sn+')">'+sn+'<div class="tip">#'+sn+' '+sd.product+','+sd.num+'</div></div>'}
     else grid+='<div class="lcell empty"></div>';
   }}
-
   let t2='';
   if(c.type2.length>0){
     t2='<div class="type2-box"><div class="type2-title">▲ 台車上部（タイプ2: '+c.type2.length+'個）</div><div class="type2-items">'+
-      c.type2.map((t,i)=>'<div class="t2-chip'+(vs.has('t2-'+i)?' done':'')+'" onclick="W.tog(\''+cid+'\',\'t2-'+i+'\')">'+t.product+','+t.num+'</div>').join('')+
-      '</div></div>';
+      c.type2.map((t,i)=>'<div class="t2-chip'+(vs.has('t2-'+i)?' done':'')+'" onclick="W.tog(\''+cid+'\',\'t2-'+i+'\')">'+t.product+','+t.num+'</div>').join('')+'</div></div>';
   }
   const cp=st.total>0?(st.done/st.total*100).toFixed(0):0;
-
   return'<div class="left-panel'+hm+'"><div class="current-label">現在の作業台車</div>'+
     '<div class="current-header"><div class="current-id">'+cid+'</div><div class="current-meta">'+
     '<span class="current-badge '+(st.complete?'badge-done':'badge-active')+'">'+(st.complete?'✓ 完了':'⏳ 作業中')+'</span>'+
     '<span class="current-count">'+st.done+' / '+st.total+'（'+cp+'%）</span></div></div>'+
     latestHtml+t2+
     '<div class="grid-wrap"><div class="grid-scroll"><div class="large-grid" style="grid-template-columns:repeat('+COLS+',1fr)">'+grid+'</div></div></div>'+
-    '<div class="cart-selector"><div class="cart-sel-row">'+
-    '<div class="cart-sel-title">台車選択</div>'+
+    '<div class="cart-selector"><div class="cart-sel-row"><div class="cart-sel-title">台車選択</div>'+
     '<div class="auto-toggle '+(S.autoFollow?'on':'')+'" onclick="W.toggleAuto()">🔄 自動追従 '+(S.autoFollow?'ON':'OFF')+'</div></div>'+
-    '<div class="cart-btns">'+
-    ids.map(id=>{const s=cartStats(id);let cls=id===cid?'active':'';if(s.complete)cls+=' cdone';
+    '<div class="cart-btns">'+ids.map(id=>{const s=cartStats(id);let cls=id===cid?'active':'';if(s.complete)cls+=' cdone';
       return'<button class="cbtn '+cls+'" onclick="W.sel(\''+id+'\')">'+id+(s.complete?' ✓':'')+'</button>'}).join('')+
     '</div></div></div>';
 }
@@ -589,53 +672,54 @@ function mobileNavHTML(ids){
   }).join('')+'</div>';
 }
 
-function gasModalHTML(){
-  return'<div class="modal-bg" onclick="W.closeGas(event)"><div class="modal-box" onclick="event.stopPropagation()">'+
-    '<h3>GAS連携設定</h3><p class="desc">Googleスプレッドシートの照合データを自動取得します（5秒間隔）</p>'+
-    '<input type="text" id="gas-input" placeholder="https://script.google.com/macros/s/.../exec" value="'+(S.gasUrl||'')+'">'+
-    '<div style="margin-bottom:10px"><button class="mbtn mbtn-save" style="font-size:11px;padding:5px 14px;background:var(--blue-400)" onclick="W.testGas()">🔍 接続テスト</button>'+
-    '<span id="gas-test-result" style="margin-left:8px;font-size:11px"></span></div>'+
-    '<div class="note">'+
-    '<b>重要:</b><br>'+
-    '1.「デプロイを管理」→ 鉛筆アイコン → バージョン「新バージョン」→「デプロイ」でURLを変えずに更新可能<br>'+
-    '2.「アクセスできるユーザー」→「全員」<br>'+
-    '3. URLの末尾が <code>/exec</code> であること</div>'+
-    '<div class="modal-btns"><button class="mbtn mbtn-cancel" onclick="S.showGas=false;render()">キャンセル</button>'+
-    '<button class="mbtn mbtn-save" onclick="W.saveGas()">保存して接続</button></div></div></div>';
+function csvModalHTML(){
+  return'<div class="modal-bg" onclick="W.closeCsv(event)"><div class="modal-box" onclick="event.stopPropagation()">'+
+    '<h3>📂 CSVデータ更新</h3>'+
+    '<p class="desc">巣箱CSVをアップロードすると、スプレッドシートに保存され<br>全デバイスで共有されます（1日1回、朝に更新）</p>'+
+    '<div class="csv-drop" id="csv-drop" onclick="document.getElementById(\'csv-file\').click()">'+
+    '<input type="file" id="csv-file" accept=".csv">'+
+    '📂 クリックしてCSVを選択<br>またはここにドラッグ＆ドロップ</div>'+
+    '<div class="csv-status" id="csv-status">'+(S.csvUploading?'<span style="color:var(--blue-500)">アップロード中...</span>':'')+'</div>'+
+    '<div class="modal-btns"><button class="mbtn mbtn-cancel" onclick="S.showCsvModal=false;render()">閉じる</button></div>'+
+    '</div></div>';
 }
 
-// ===== EVENT SETUP =====
-function setupUpload(){
-  const inp=document.getElementById('csv-in');
-  if(inp)inp.addEventListener('change',e=>{const f=e.target.files[0];if(f)loadCSVFile(f)});
-  // Drag & drop on upload card
-  const dropZone=document.getElementById('upload-drop');
-  if(dropZone){
-    ['dragenter','dragover'].forEach(ev=>dropZone.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();dropZone.classList.add('dragover')}));
-    ['dragleave','drop'].forEach(ev=>dropZone.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();dropZone.classList.remove('dragover')}));
-    dropZone.addEventListener('drop',e=>{
-      const files=e.dataTransfer.files;
-      if(files.length>0)loadCSVFile(files[0]);
-    });
-  }
+function settingsModalHTML(){
+  return'<div class="modal-bg" onclick="W.closeSettings(event)"><div class="modal-box" onclick="event.stopPropagation()">'+
+    '<h3>⚙ GAS連携設定</h3>'+
+    '<p class="desc">GAS Web App URLを変更できます</p>'+
+    '<input type="text" id="settings-url" placeholder="https://script.google.com/macros/s/.../exec" value="'+(S.gasUrl||'')+'">'+
+    '<div class="modal-btns"><button class="mbtn mbtn-cancel" onclick="S.showSettingsModal=false;render()">キャンセル</button>'+
+    '<button class="mbtn mbtn-save" onclick="W.saveSettings()">保存して再接続</button></div>'+
+    '</div></div>';
 }
 
-// Global drag & drop (for re-loading CSV after initial load)
-let dragCounter=0;
-document.addEventListener('dragenter',e=>{e.preventDefault();dragCounter++;if(dragCounter===1&&S.cartData){S.dragging=true;render()}});
-document.addEventListener('dragover',e=>{e.preventDefault()});
-document.addEventListener('dragleave',e=>{e.preventDefault();dragCounter--;if(dragCounter<=0){dragCounter=0;if(S.dragging){S.dragging=false;render()}}});
-document.addEventListener('drop',e=>{
-  e.preventDefault();dragCounter=0;S.dragging=false;
-  const files=e.dataTransfer.files;
-  if(files.length>0&&files[0].name.endsWith('.csv')){
-    S.cartData=null;S.selectedCart=null;S.verified={};
-    loadCSVFile(files[0]);
-  }else{render()}
-});
+// ============================================================
+// EVENT HANDLERS
+// ============================================================
+function setupHandlers(){
+  // Setup screen connect button handled by W.connect
+}
 
-// ===== HANDLERS =====
 const W={
+  async connect(){
+    const el=document.getElementById('setup-result');
+    const url=(document.getElementById('setup-url')||{}).value||'';
+    if(!url.trim()){el.innerHTML='<span style="color:#ef4444">URLを入力してください</span>';return}
+    el.innerHTML='<span style="color:var(--blue-500)">接続テスト中...</span>';
+    S.gasUrl=url.trim();
+    try{localStorage.setItem('subako_gas_url',S.gasUrl)}catch(e){}
+    try{
+      const data=await gasFetch('both');
+      if(!data){el.innerHTML='<span style="color:#ef4444">レスポンスが空です</span>';return}
+      el.innerHTML='<span style="color:var(--done)">✓ 接続成功！</span>';
+      S.phase='loading';render();
+      await loadAll();
+      startPoll();
+    }catch(e){
+      el.innerHTML='<span style="color:#ef4444">接続失敗: '+e.message+'</span>';
+    }
+  },
   sel(cid){S.selectedCart=cid;S.autoFollow=false;render()},
   tog(cid,sk){
     if(!S.verified[cid])S.verified[cid]=new Set();
@@ -644,36 +728,78 @@ const W={
     render();
   },
   toggleAuto(){S.autoFollow=!S.autoFollow;render()},
-  showGasM(){S.showGas=true;render()},
-  closeGas(e){if(e.target.classList.contains('modal-bg')){S.showGas=false;render()}},
-  async testGas(){
-    const el=document.getElementById('gas-test-result');
-    const url=(document.getElementById('gas-input')||{}).value||'';
-    if(!url.trim()){el.innerHTML='<span style="color:#ef4444">URLを入力してください</span>';return}
-    el.innerHTML='<span style="color:var(--blue-500)">接続中...</span>';
-    try{
-      const r=await fetch(url.trim()+'?t='+Date.now(),{redirect:'follow'});
-      if(!r.ok){el.innerHTML='<span style="color:#ef4444">HTTP エラー '+r.status+'</span>';return}
-      const text=await r.text();
-      let data;
-      try{data=JSON.parse(text)}catch(pe){el.innerHTML='<span style="color:#ef4444">JSONパースエラー: '+text.substring(0,80)+'</span>';return}
-      const rows=Array.isArray(data)?data:[];
-      if(rows.length===0){el.innerHTML='<span style="color:#f59e0b">接続OK、データ0件</span>';return}
-      el.innerHTML='<span style="color:var(--done)">✓ 接続成功！ '+rows.length+'件取得</span>';
-    }catch(e){el.innerHTML='<span style="color:#ef4444">接続失敗: '+e.message+'</span>'}
-  },
-  saveGas(){
-    const url=(document.getElementById('gas-input')||{}).value||'';
+  showCsv(){S.showCsvModal=true;render();setupCsvDrop()},
+  closeCsv(e){if(e.target.classList.contains('modal-bg')){S.showCsvModal=false;render()}},
+  showSettings(){S.showSettingsModal=true;render()},
+  closeSettings(e){if(e.target.classList.contains('modal-bg')){S.showSettingsModal=false;render()}},
+  async saveSettings(){
+    const url=(document.getElementById('settings-url')||{}).value||'';
     S.gasUrl=url.trim();
     try{localStorage.setItem('subako_gas_url',S.gasUrl)}catch(e){}
-    S.showGas=false;startPoll();render();
+    S.showSettingsModal=false;S.phase='loading';render();
+    await loadAll();startPoll();
   },
-  resetCSV(){S.cartData=null;S.selectedCart=null;S.verified={};S.showUpload=true;if(S.pollTimer)clearInterval(S.pollTimer);render()},
   setV(v){S.mobileView=v;render()},
 };
 window.W=W;
 
-// === Global tooltip ===
+function setupCsvDrop(){
+  setTimeout(()=>{
+    const drop=document.getElementById('csv-drop');
+    const fileIn=document.getElementById('csv-file');
+    if(!drop||!fileIn)return;
+    ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();drop.classList.add('over')}));
+    ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();drop.classList.remove('over')}));
+    drop.addEventListener('drop',e=>{const f=e.dataTransfer.files;if(f.length>0)handleCSVFile(f[0])});
+    fileIn.addEventListener('change',e=>{const f=e.target.files[0];if(f)handleCSVFile(f)});
+  },100);
+}
+
+async function handleCSVFile(file){
+  const statusEl=document.getElementById('csv-status');
+  if(statusEl)statusEl.innerHTML='<span style="color:var(--blue-500)">読み込み中...</span>';
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const text=ev.target.result;
+    const lines=text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
+    if(lines.length<2){
+      if(statusEl)statusEl.innerHTML='<span style="color:#ef4444">CSVデータが空です</span>';
+      return;
+    }
+    // Validate
+    const items=parseCSVText(text);
+    if(!items||items.length===0){
+      if(statusEl)statusEl.innerHTML='<span style="color:#ef4444">CSVの形式が正しくありません</span>';
+      return;
+    }
+    if(statusEl)statusEl.innerHTML='<span style="color:var(--blue-500)">スプレッドシートにアップロード中... ('+lines.length+'行)</span>';
+    // Upload to GAS
+    try{
+      const rows=lines.map(l=>[l]);
+      const result=await gasPost({action:'uploadCSV',rows:rows});
+      if(result.status==='ok'){
+        if(statusEl)statusEl.innerHTML='<span style="color:var(--done)">✓ アップロード完了！ '+result.count+'行を保存しました</span>';
+        // Reload data
+        S.cartData=buildCartData(items);
+        S.showCsvModal=false;
+        S.phase='dashboard';
+        startPoll();
+        // Also fetch latest verify data
+        await pollVerify();
+        render();
+      }else{
+        if(statusEl)statusEl.innerHTML='<span style="color:#ef4444">エラー: '+(result.message||'不明')+'</span>';
+      }
+    }catch(e){
+      if(statusEl)statusEl.innerHTML='<span style="color:#ef4444">アップロード失敗: '+e.message+'</span>';
+    }
+  };
+  reader.readAsText(file,'Shift_JIS');
+}
+
+// ============================================================
+// GLOBAL TOOLTIP
+// ============================================================
 const gtip=document.createElement('div');
 gtip.id='gtip';
 document.body.appendChild(gtip);
@@ -700,14 +826,23 @@ document.addEventListener('mouseout',function(e){
   }
 });
 
-// Hide tooltip on every render (prevents stale tooltip during GAS poll)
+// Hide tooltip on render
 const _origRender=render;
 function renderSafe(){gtip.style.display='none';tipTarget=null;_origRender()}
-// Replace all render calls
-window.renderOrig=render;
 render=renderSafe;
 
-render();
+// ============================================================
+// INIT
+// ============================================================
+(async function(){
+  if(S.gasUrl){
+    S.phase='loading';render();
+    await loadAll();
+    startPoll();
+  }else{
+    S.phase='setup';render();
+  }
+})();
 </script>
 </body>
 </html>
