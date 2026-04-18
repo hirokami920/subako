@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>巣箱照合アプリ</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: #f5f5f7;
+    color: #1d1d1f;
+    min-height: 100vh;
+    padding: 10px;
+    font-size: 15px;
+  }
+  .container { max-width: 600px; margin: 0 auto; }
+  h1 { font-size: 17px; font-weight: 600; text-align: center; margin-bottom: 8px; }
+
+  /* 初期設定 */
+  .setup-screen { background: #fff; border-radius: 12px; padding: 20px; margin-top: 20px; }
+  .setup-screen h2 { font-size: 18px; margin-bottom: 12px; }
+  .setup-screen p { font-size: 13px; color: #6e6e73; margin-bottom: 16px; line-height: 1.5; }
+  .setup-screen input {
+    width: 100%; padding: 10px; border: 1px solid #d0d0d0; border-radius: 8px;
+    font-size: 13px; margin-bottom: 12px; font-family: ui-monospace, monospace;
+  }
+  .setup-screen label { font-size: 12px; color: #6e6e73; display: block; margin-bottom: 4px; }
+  .setup-btn {
+    width: 100%; padding: 12px; background: #007aff; color: #fff; border: none;
+    border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
+  .setup-skip {
+    width: 100%; padding: 10px; background: transparent; color: #6e6e73; border: none;
+    font-size: 13px; cursor: pointer; margin-top: 8px; font-family: inherit;
+  }
+
+  /* カメラ */
+  .scanner-area {
+    background: #000; border-radius: 12px; overflow: hidden; position: relative;
+    aspect-ratio: 4/3; margin-bottom: 8px; cursor: pointer;
+  }
+  #video { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .scan-guide {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 40%; height: 40%; border: 3px solid rgba(255,255,255,0.4);
+    border-radius: 8px; pointer-events: none; transition: border-color 0.2s;
+  }
+  .scan-guide.detecting { border-color: rgba(0,255,0,1); background: rgba(0,255,0,0.08); }
+  .scan-status {
+    position: absolute; bottom: 6px; left: 6px; right: 6px;
+    background: rgba(0,0,0,0.75); color: #fff; padding: 5px 8px;
+    border-radius: 6px; font-size: 12px; text-align: center; font-weight: 500;
+  }
+  .scan-info {
+    position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,0.7);
+    color: #0f0; padding: 3px 6px; border-radius: 4px; font-size: 10px; font-family: monospace;
+  }
+  .scan-live {
+    position: absolute; top: 6px; left: 6px; background: rgba(0,0,0,0.7);
+    color: #ffcc00; padding: 3px 6px; border-radius: 4px; font-size: 10px;
+    font-family: monospace; max-width: 65%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* 台車情報バー */
+  .cart-bar {
+    background: #1d1d1f; color: #fff; border-radius: 8px; padding: 8px 12px;
+    margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .cart-bar.empty { background: #8e8e93; }
+  .cart-label { font-size: 11px; color: rgba(255,255,255,0.6); }
+  .cart-value { font-size: 16px; font-weight: 700; font-family: ui-monospace, monospace; }
+  .cart-count { text-align: right; }
+  .cart-count-num { font-size: 16px; font-weight: 700; }
+
+  /* スロット */
+  .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+  .slot {
+    background: #fff; border: 2px solid #e0e0e0; border-radius: 8px;
+    padding: 6px 8px; min-height: 52px;
+  }
+  .slot.filled { border-color: #007aff; background: #f0f7ff; }
+  .slot.target { border-color: #ff9500; background: #fff8f0; }
+  .slot-label { font-size: 10px; color: #6e6e73; margin-bottom: 2px; font-weight: 600; }
+  .slot-value { font-size: 12px; word-break: break-all; font-family: ui-monospace, monospace; min-height: 14px; }
+  .slot-extracted { font-size: 10px; color: #007aff; margin-top: 1px; font-weight: 600; }
+
+  /* 読取スライダー 30% */
+  .capture-slider {
+    background: #fff; border: 2px solid #007aff; border-radius: 50px;
+    height: 48px; position: relative; overflow: hidden; user-select: none;
+    touch-action: pan-y; margin-bottom: 8px;
+    width: 30%; margin-left: auto; margin-right: 0;
+  }
+  .capture-track {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; color: #007aff; font-weight: 600; font-size: 12px; pointer-events: none;
+  }
+  .capture-fill {
+    position: absolute; top: 0; left: 0; bottom: 0; width: 44px;
+    background: #007aff; border-radius: 50px; transition: width 0.2s ease-out;
+  }
+  .capture-thumb {
+    position: absolute; top: 3px; left: 3px; width: 40px; height: 40px;
+    background: #007aff; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; color: #fff; font-size: 16px; transition: transform 0.2s ease-out; cursor: grab;
+  }
+  .capture-thumb:active { cursor: grabbing; }
+  .capture-slider.disabled { opacity: 0.4; pointer-events: none; border-color: #b0b0b0; }
+  .capture-slider.disabled .capture-fill,
+  .capture-slider.disabled .capture-thumb { background: #b0b0b0; }
+  .capture-slider.disabled .capture-track { color: #6e6e73; }
+
+  /* 結果 */
+  .result-banner {
+    padding: 14px; border-radius: 10px; text-align: center;
+    margin-bottom: 8px; font-size: 20px; font-weight: 700; display: none;
+  }
+  .result-banner.ok { background: #d4edda; color: #155724; display: block; }
+  .result-banner.ng { background: #f8d7da; color: #721c24; display: block; animation: shake 0.4s; }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+  }
+  .result-detail { font-size: 12px; font-weight: 400; margin-top: 3px; }
+
+  .btn {
+    padding: 10px; border: none; border-radius: 8px;
+    font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; width: 100%;
+  }
+  .btn-clear { background: #e0e0e0; color: #1d1d1f; margin-bottom: 8px; }
+
+  /* 統計 */
+  .stats {
+    background: #fff; border-radius: 8px; padding: 6px;
+    margin-bottom: 8px; display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 4px; text-align: center;
+  }
+  .stat-label { font-size: 9px; color: #6e6e73; }
+  .stat-value { font-size: 16px; font-weight: 700; }
+  .stat-ok { color: #28a745; }
+  .stat-ng { color: #dc3545; }
+  .stat-sync { color: #007aff; font-size: 12px; }
+
+  /* 履歴 */
+  .history {
+    background: #fff; border-radius: 8px; max-height: 120px; overflow-y: auto; margin-bottom: 8px;
+  }
+  .history-item {
+    padding: 5px 8px; border-bottom: 1px solid #f0f0f0; font-size: 10px;
+    display: flex; justify-content: space-between; gap: 4px; align-items: center;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .history-tag { padding: 1px 6px; border-radius: 3px; font-weight: 600; font-size: 9px; flex-shrink: 0; }
+  .history-tag.ok { background: #d4edda; color: #155724; }
+  .history-tag.ng { background: #f8d7da; color: #721c24; }
+  .history-sync { font-size: 9px; flex-shrink: 0; }
+  .history-sync.synced { color: #28a745; }
+  .history-sync.pending { color: #ff9500; }
+  .history-sync.failed { color: #dc3545; }
+  .history-values { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, monospace; }
+
+  /* 台車完了スライダー 50% */
+  .cart-complete-slider {
+    background: #fff; border: 2px solid #ff9500; border-radius: 50px;
+    height: 48px; position: relative; overflow: hidden; user-select: none;
+    touch-action: pan-y; margin-bottom: 6px;
+    width: 50%; margin-left: auto; margin-right: 0;
+  }
+  .cart-complete-slider .slide-track-inner {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; color: #ff9500; font-weight: 600; font-size: 11px; pointer-events: none;
+  }
+  .cart-complete-slider .slide-fill-inner {
+    position: absolute; top: 0; left: 0; bottom: 0; width: 44px;
+    background: #ff9500; border-radius: 50px; transition: width 0.2s ease-out;
+  }
+  .cart-complete-slider .slide-thumb-inner {
+    position: absolute; top: 3px; left: 3px; width: 40px; height: 40px;
+    background: #ff9500; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; color: #fff; font-size: 16px; transition: transform 0.2s ease-out; cursor: grab;
+  }
+  .cart-complete-slider.disabled { opacity: 0.4; pointer-events: none; border-color: #b0b0b0; }
+  .cart-complete-slider.disabled .slide-fill-inner,
+  .cart-complete-slider.disabled .slide-thumb-inner { background: #b0b0b0; }
+  .cart-complete-slider.disabled .slide-track-inner { color: #6e6e73; }
+
+  /* アプリ終了スライダー 50% */
+  .slide-submit {
+    background: #fff; border: 2px solid #dc3545; border-radius: 50px;
+    height: 48px; position: relative; overflow: hidden; user-select: none;
+    touch-action: pan-y; width: 50%; margin-left: auto; margin-right: 0;
+  }
+  .slide-submit .slide-track {
+    position: absolute; inset: 0; display: flex; align-items: center;
+    justify-content: center; color: #dc3545; font-weight: 600; font-size: 11px; pointer-events: none;
+  }
+  .slide-submit .slide-fill {
+    position: absolute; top: 0; left: 0; bottom: 0; width: 44px;
+    background: #dc3545; border-radius: 50px; transition: width 0.2s ease-out;
+  }
+  .slide-submit .slide-thumb {
+    position: absolute; top: 3px; left: 3px; width: 40px; height: 40px;
+    background: #dc3545; border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; color: #fff; font-size: 16px; transition: transform 0.2s ease-out;
+  }
+  .slide-submit.disabled { opacity: 0.4; pointer-events: none; border-color: #b0b0b0; }
+  .slide-submit.disabled .slide-fill,
+  .slide-submit.disabled .slide-thumb { background: #b0b0b0; }
+  .slide-submit.disabled .slide-track { color: #6e6e73; }
+
+  .hidden { display: none !important; }
+
+  .end-screen { text-align: center; padding: 30px 20px; background: #fff; border-radius: 12px; }
+  .end-screen h2 { font-size: 20px; margin-bottom: 10px; }
+  .end-screen p { color: #6e6e73; margin-bottom: 16px; font-size: 13px; }
+  .btn-download {
+    background: #007aff; color: #fff; padding: 12px 20px; border: none;
+    border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; margin: 4px; font-family: inherit;
+  }
+  .btn-download.secondary { background: #8e8e93; }
+
+  .phase-label {
+    background: #007aff; color: #fff; padding: 4px 10px; border-radius: 6px;
+    font-size: 11px; font-weight: 600; text-align: center; margin-bottom: 6px;
+  }
+  .phase-label.cart { background: #1d1d1f; }
+  .phase-label.slot { background: #ff9500; }
+  .phase-label.label { background: #28a745; }
+</style>
+</head>
+<body>
+
+<!-- 初期設定画面 -->
+<div class="container" id="setup-app">
+  <h1>巣箱照合アプリ</h1>
+  <div class="setup-screen">
+    <h2>Googleスプレッドシート連携</h2>
+    <p>GASウェブアプリURLを入力。照合OKのデータがリアルタイムで記録されます。</p>
+    <label>GAS ウェブアプリURL</label>
+    <input type="text" id="gas-url" placeholder="https://script.google.com/macros/s/.../exec">
+    <label>端末名（任意）</label>
+    <input type="text" id="device-name" placeholder="例: タブレットA">
+    <button class="setup-btn" onclick="saveSetup()">保存して開始</button>
+    <button class="setup-skip" onclick="skipSetup()">連携なしで使用</button>
+  </div>
+</div>
+
+<!-- メイン画面 -->
+<div class="container hidden" id="main-app">
+  <h1>巣箱照合アプリ</h1>
+
+  <!-- 台車情報 -->
+  <div class="cart-bar empty" id="cart-bar">
+    <div>
+      <div class="cart-label">台車QR</div>
+      <div class="cart-value" id="cart-value">未読取</div>
+    </div>
+    <div class="cart-count">
+      <div class="cart-label">照合数</div>
+      <div class="cart-count-num" id="cart-count">0</div>
+    </div>
+  </div>
+
+  <div class="scanner-area" id="scanner-area">
+    <video id="video" playsinline autoplay muted></video>
+    <div class="scan-guide" id="scan-guide"></div>
+    <div class="scan-info" id="scan-info">起動中...</div>
+    <div class="scan-live" id="scan-live"></div>
+    <div class="scan-status" id="scan-status">カメラ起動中...</div>
+  </div>
+
+  <!-- 現在のフェーズ表示 -->
+  <div class="phase-label cart" id="phase-label">①台車QRを読み取ってください</div>
+
+  <div class="capture-slider" id="capture-slider">
+    <div class="capture-fill" id="capture-fill"></div>
+    <div class="capture-thumb" id="capture-thumb">→</div>
+    <div class="capture-track" id="capture-track">読取</div>
+  </div>
+
+  <div class="slots">
+    <div class="slot" id="slot1">
+      <div class="slot-label">差込口QR</div>
+      <div class="slot-value" id="value1"></div>
+    </div>
+    <div class="slot" id="slot2">
+      <div class="slot-label">製品ラベル</div>
+      <div class="slot-value" id="value2"></div>
+      <div class="slot-extracted" id="extracted2"></div>
+    </div>
+  </div>
+
+  <div class="result-banner" id="result"></div>
+
+  <button class="btn btn-clear" onclick="clearSlots()">クリア（やり直し）</button>
+
+  <div class="stats">
+    <div>
+      <div class="stat-label">合計</div>
+      <div class="stat-value" id="stat-total">0</div>
+    </div>
+    <div>
+      <div class="stat-label">OK</div>
+      <div class="stat-value stat-ok" id="stat-ok">0</div>
+    </div>
+    <div>
+      <div class="stat-label">NG</div>
+      <div class="stat-value stat-ng" id="stat-ng">0</div>
+    </div>
+    <div>
+      <div class="stat-label">同期</div>
+      <div class="stat-value stat-sync" id="stat-sync">-</div>
+    </div>
+  </div>
+
+  <div class="history" id="history"></div>
+
+  <!-- 台車完了スライダー -->
+  <div class="cart-complete-slider disabled" id="cart-complete-slider">
+    <div class="slide-fill-inner" id="cc-fill"></div>
+    <div class="slide-thumb-inner" id="cc-thumb">→</div>
+    <div class="slide-track-inner">台車完了</div>
+  </div>
+
+  <!-- アプリ終了スライダー -->
+  <div class="slide-submit disabled" id="slide-submit">
+    <div class="slide-fill" id="end-fill"></div>
+    <div class="slide-thumb" id="end-thumb">→</div>
+    <div class="slide-track">全作業終了</div>
+  </div>
+</div>
+
+<!-- 完了画面 -->
+<div class="container hidden" id="end-app">
+  <div class="end-screen">
+    <h2>作業完了</h2>
+    <p id="end-message"></p>
+    <button class="btn-download" onclick="downloadCSV()">CSVダウンロード</button>
+    <button class="btn-download secondary" onclick="location.reload()">最初からやり直す</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script>
+// =========== 設定 ===========
+let GAS_URL = '';
+let DEVICE_NAME = '';
+
+function loadSetup() {
+  try {
+    GAS_URL = localStorage.getItem('qr_gas_url') || '';
+    DEVICE_NAME = localStorage.getItem('qr_device_name') || '';
+  } catch(e) {}
+}
+function saveSetup() {
+  const url = document.getElementById('gas-url').value.trim();
+  const device = document.getElementById('device-name').value.trim();
+  if (!url || !url.startsWith('https://script.google.com/')) {
+    alert('正しいGAS URLを入力してください');
+    return;
+  }
+  GAS_URL = url;
+  DEVICE_NAME = device;
+  try { localStorage.setItem('qr_gas_url', url); localStorage.setItem('qr_device_name', device); } catch(e) {}
+  showMain();
+}
+function skipSetup() { GAS_URL = ''; DEVICE_NAME = ''; showMain(); }
+function showMain() {
+  document.getElementById('setup-app').classList.add('hidden');
+  document.getElementById('main-app').classList.remove('hidden');
+  startCamera();
+}
+
+// =========== 状態管理 ===========
+/*
+  フェーズ:
+    'cart'  : 台車QR待ち
+    'slot'  : 差込口QR or 製品ラベル待ち (タイプ判定前)
+    'label' : 製品ラベル待ち (タイプ1: 差込口QR読取済み)
+*/
+let phase = 'cart';
+let cartQR = null;       // 現在の台車QR (例: "3_3")
+let cartMatchCount = 0;  // この台車の照合OK数
+let slotQR = null;       // 差込口QR (1〜255) ※タイプ1のみ
+let labelRaw = null;     // 製品ラベル生値
+let records = [];         // 全記録
+let scanning = true;
+let liveCode = null;
+let currentTrack = null;
+let detector = null;
+let useNativeDetector = false;
+let canvas, ctx;
+let cropCanvas = null, cropCtx = null;
+let syncedCount = 0, pendingCount = 0, failedCount = 0;
+let totalCarts = 0;       // 完了台車数
+
+const video = document.getElementById('video');
+const statusEl = document.getElementById('scan-status');
+const infoEl = document.getElementById('scan-info');
+const liveEl = document.getElementById('scan-live');
+const guideEl = document.getElementById('scan-guide');
+const resultEl = document.getElementById('result');
+const phaseEl = document.getElementById('phase-label');
+const captureTrack = document.getElementById('capture-track');
+
+// =========== カメラ ===========
+async function initDetector() {
+  if ('BarcodeDetector' in window) {
+    try {
+      const supported = await BarcodeDetector.getSupportedFormats();
+      if (supported.includes('qr_code')) {
+        detector = new BarcodeDetector({ formats: ['qr_code'] });
+        useNativeDetector = true;
+        infoEl.textContent = 'Native';
+        return true;
+      }
+    } catch (e) {}
+  }
+  if (typeof jsQR !== 'undefined') {
+    useNativeDetector = false;
+    canvas = document.createElement('canvas');
+    ctx = canvas.getContext('2d', { willReadFrequently: true });
+    infoEl.textContent = 'jsQR';
+    return true;
+  }
+  infoEl.textContent = 'ERR';
+  return false;
+}
+
+async function startCamera() {
+  const ok = await initDetector();
+  if (!ok) { statusEl.textContent = 'QR認識エンジン初期化失敗'; return; }
+
+  const constraintsList = [
+    { video: { facingMode: { exact: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
+    { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
+    { video: { facingMode: 'environment' } },
+    { video: { facingMode: { ideal: 'environment' } } },
+    { video: true }
+  ];
+  let stream = null, lastError = null;
+  for (let i = 0; i < constraintsList.length; i++) {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraintsList[i]);
+      break;
+    } catch (e) { lastError = e; }
+  }
+  if (!stream) {
+    const n = lastError ? lastError.name : 'Unknown';
+    const m = lastError ? lastError.message : '';
+    let h = '';
+    if (n === 'NotAllowedError') h = '→ カメラ許可を確認';
+    else if (n === 'NotReadableError') h = '→ 他アプリ終了してください';
+    statusEl.textContent = '[' + n + '] ' + m + ' ' + h;
+    return;
+  }
+  try {
+    video.srcObject = stream;
+    currentTrack = stream.getVideoTracks()[0];
+    try {
+      const cap = currentTrack.getCapabilities ? currentTrack.getCapabilities() : {};
+      if (cap.focusMode && cap.focusMode.includes('continuous'))
+        await currentTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+    } catch(e) {}
+    await video.play();
+    updatePhase();
+    requestAnimationFrame(scanLoop);
+  } catch (e) { statusEl.textContent = '映像再生エラー: ' + e.message; }
+}
+
+async function scanLoop() {
+  if (!scanning) { requestAnimationFrame(scanLoop); return; }
+  if (video.readyState === video.HAVE_ENOUGH_DATA) {
+    try {
+      let data = null;
+      if (useNativeDetector) {
+        // BarcodeDetectorはcropできないため、canvasで中央をクロップしてから認識
+        if (!cropCanvas) {
+          cropCanvas = document.createElement('canvas');
+          cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
+        }
+        const vw = video.videoWidth, vh = video.videoHeight;
+        // 中央40%の範囲のみ切り出し
+        const cropRatio = 0.4;
+        const cw = Math.round(vw * cropRatio);
+        const ch = Math.round(vh * cropRatio);
+        const cx = Math.round((vw - cw) / 2);
+        const cy = Math.round((vh - ch) / 2);
+        cropCanvas.width = cw;
+        cropCanvas.height = ch;
+        cropCtx.drawImage(video, cx, cy, cw, ch, 0, 0, cw, ch);
+        const barcodes = await detector.detect(cropCanvas);
+        if (barcodes.length > 0) data = barcodes[0].rawValue;
+      } else {
+        if (!cropCanvas) {
+          cropCanvas = document.createElement('canvas');
+          cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
+        }
+        const vw = video.videoWidth, vh = video.videoHeight;
+        const cropRatio = 0.4;
+        const cw = Math.round(vw * cropRatio);
+        const ch = Math.round(vh * cropRatio);
+        const cx = Math.round((vw - cw) / 2);
+        const cy = Math.round((vh - ch) / 2);
+        cropCanvas.width = cw;
+        cropCanvas.height = ch;
+        cropCtx.drawImage(video, cx, cy, cw, ch, 0, 0, cw, ch);
+        const imageData = cropCtx.getImageData(0, 0, cw, ch);
+        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
+        if (code && code.data) data = code.data;
+      }
+      if (data) {
+        liveCode = data;
+        liveEl.textContent = '👁 ' + data;
+        guideEl.classList.add('detecting');
+      } else {
+        liveCode = null;
+        liveEl.textContent = '';
+        guideEl.classList.remove('detecting');
+      }
+    } catch (e) {}
+  }
+  requestAnimationFrame(scanLoop);
+}
+
+document.getElementById('scanner-area').addEventListener('click', async () => {
+  if (!currentTrack) return;
+  try {
+    const cap = currentTrack.getCapabilities ? currentTrack.getCapabilities() : {};
+    if (cap.focusMode && cap.focusMode.includes('single-shot')) {
+      await currentTrack.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] });
+      setTimeout(async () => {
+        if (cap.focusMode.includes('continuous'))
+          try { await currentTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch(e) {}
+      }, 800);
+    }
+  } catch(e) {}
+});
+
+// =========== フェーズ管理 ===========
+function updatePhase() {
+  if (phase === 'cart') {
+    phaseEl.textContent = '①台車QRを読み取ってください';
+    phaseEl.className = 'phase-label cart';
+    statusEl.textContent = '台車QRにカメラを向けてスライド';
+    captureTrack.textContent = '読取';
+    document.getElementById('slot1').classList.remove('target', 'filled');
+    document.getElementById('slot2').classList.remove('target', 'filled');
+  } else if (phase === 'slot') {
+    phaseEl.textContent = '②差込口QR or 製品ラベルを読取';
+    phaseEl.className = 'phase-label slot';
+    statusEl.textContent = '差込口QR(数字)または製品ラベルをスキャン';
+    captureTrack.textContent = '読取';
+    document.getElementById('slot1').classList.add('target');
+    document.getElementById('slot1').classList.remove('filled');
+    document.getElementById('slot2').classList.remove('target', 'filled');
+  } else if (phase === 'label') {
+    phaseEl.textContent = '③製品ラベルを読み取ってください';
+    phaseEl.className = 'phase-label label';
+    statusEl.textContent = '製品ラベルにカメラを向けてスライド';
+    captureTrack.textContent = '読取';
+    document.getElementById('slot1').classList.remove('target');
+    document.getElementById('slot2').classList.add('target');
+  }
+}
+
+// =========== ラベル解析 ===========
+// 台車QR例: 20260403,3_3
+// タイプ1ラベル例: 7K13257S,L=820.0#20260403,3_3-101
+// タイプ2ラベル例: 5K19377S,L=415.0#20260403,3_3
+// #以降を解析: 台車QR部分-差込口番号(タイプ1) or 台車QR部分のみ(タイプ2)
+function parseLabel(raw) {
+  // 空白を全て除去してから処理
+  const cleaned = raw.replace(/\s/g, '');
+  const hashIdx = cleaned.indexOf('#');
+  if (hashIdx === -1) return null;
+  const afterHash = cleaned.substring(hashIdx + 1); // "20260403,3_3-101" or "20260403,3_3"
+
+  // 末尾から "-数字(1〜255)" のパターンを探す
+  const match = afterHash.match(/^(.+)-(\d{1,3})$/);
+  if (match) {
+    const num = parseInt(match[2], 10);
+    if (num >= 1 && num <= 255) {
+      // タイプ1: 差込口番号あり
+      return { type: 1, cartPart: match[1], slotNum: match[2], full: afterHash };
+    }
+  }
+  // タイプ2: 差込口番号なし
+  return { type: 2, cartPart: afterHash, slotNum: null, full: afterHash };
+}
+
+// =========== キャプチャ処理 ===========
+function onCapture() {
+  if (!liveCode) {
+    statusEl.textContent = '⚠ QRコードが認識されていません';
+    beep(300, 200);
+    return;
+  }
+  // 読取データから空白を除去
+  const data = liveCode.replace(/\s/g, '');
+
+  if (phase === 'cart') {
+    // 台車QR読取（空白除去済み）
+    cartQR = data;
+    cartMatchCount = 0;
+    document.getElementById('cart-value').textContent = cartQR;
+    document.getElementById('cart-bar').classList.remove('empty');
+    document.getElementById('cart-count').textContent = '0';
+    document.getElementById('cart-complete-slider').classList.remove('disabled');
+    beep(1000, 150);
+    phase = 'slot';
+    clearSlotDisplay();
+    updatePhase();
+  } else if (phase === 'slot') {
+    // 差込口QRか製品ラベルかを判定
+    if (/^\d+$/.test(data)) {
+      // 純数字 = 差込口QR (1〜255)
+      const num = parseInt(data, 10);
+      if (num < 1 || num > 255) {
+        statusEl.textContent = '⚠ 差込口は1〜255: ' + data;
+        beep(300, 300);
+        return;
+      }
+      slotQR = data;
+      document.getElementById('value1').textContent = data;
+      document.getElementById('slot1').classList.add('filled');
+      document.getElementById('slot1').classList.remove('target');
+      beep(800, 100);
+      phase = 'label';
+      updatePhase();
+    } else {
+      // 製品ラベル → タイプ2チェック
+      const parsed = parseLabel(data);
+      if (!parsed) {
+        statusEl.textContent = '⚠ ラベル形式不正(#なし): ' + data;
+        beep(300, 300);
+        return;
+      }
+      if (parsed.type === 1) {
+        statusEl.textContent = '⚠ タイプ1ラベルです。先に差込口QRを読んでください';
+        beep(300, 200);
+        return;
+      }
+      // タイプ2: 台車QRのみ照合
+      slotQR = null;
+      labelRaw = data;
+      document.getElementById('value2').textContent = truncate(data, 30);
+      document.getElementById('extracted2').textContent = '台車: ' + parsed.cartPart;
+      document.getElementById('slot2').classList.add('filled');
+
+      const match = parsed.cartPart === cartQR;
+      showResult(match, cartQR, parsed.cartPart, null, null, data);
+    }
+  } else if (phase === 'label') {
+    // タイプ1: 製品ラベル読取
+    const parsed = parseLabel(data);
+    if (!parsed) {
+      statusEl.textContent = '⚠ ラベル形式不正(#なし)';
+      beep(300, 300);
+      return;
+    }
+    labelRaw = data;
+    document.getElementById('value2').textContent = truncate(data, 30);
+    document.getElementById('extracted2').textContent = '台車:' + parsed.cartPart + ' 口:' + (parsed.slotNum || '-');
+    document.getElementById('slot2').classList.add('filled');
+
+    const cartMatch = parsed.cartPart === cartQR;
+    const slotMatch = parsed.slotNum === slotQR;
+    const ok = cartMatch && slotMatch;
+    showResult(ok, cartQR, parsed.cartPart, slotQR, parsed.slotNum, data);
+  }
+}
+
+function showResult(ok, cartExpect, cartActual, slotExpect, slotActual, rawLabel) {
+  let detail = '';
+  let ngReason = '';
+
+  // 重複チェック（照合自体がOKでも、既に同じ組み合わせが記録済みならNG）
+  if (ok && isDuplicate(cartActual, slotActual)) {
+    ok = false;
+    ngReason = '重複';
+    detail = '既に照合済みです: ' + cartActual + (slotActual ? '-' + slotActual : '');
+  } else if (ok) {
+    if (slotExpect !== null) {
+      detail = `台車: ${cartExpect}=${cartActual}  口: ${slotExpect}=${slotActual||'-'}`;
+    } else {
+      detail = `台車: ${cartExpect}=${cartActual}`;
+    }
+  } else {
+    // 照合不一致
+    if (slotExpect !== null) {
+      if (cartExpect !== cartActual) ngReason = '台車不一致';
+      else if (slotExpect !== (slotActual||'')) ngReason = '差込口不一致';
+      else ngReason = '不一致';
+      detail = `台車: ${cartExpect}${cartExpect===cartActual ? '=':'≠'}${cartActual}  口: ${slotExpect}${slotExpect===(slotActual||'') ? '=':'≠'}${slotActual||'-'}`;
+    } else {
+      ngReason = '台車不一致';
+      detail = `台車: ${cartExpect}≠${cartActual}`;
+    }
+  }
+
+  resultEl.innerHTML = (ok ? '✓ OK' : '✗ NG') + (ngReason ? '（' + ngReason + '）' : '') + '<div class="result-detail">' + escapeHtml(detail) + '</div>';
+  resultEl.className = 'result-banner ' + (ok ? 'ok' : 'ng');
+
+  if (ok) {
+    playPinpon();
+    statusEl.textContent = '✓ 照合OK → 自動記録';
+    addToMatched(cartActual, slotActual);
+    const record = {
+      time: new Date().toLocaleString('ja-JP'),
+      cart: cartQR,
+      slot: slotExpect || '',
+      label: rawLabel,
+      cartExtracted: cartActual,
+      slotExtracted: slotActual || '',
+      result: 'OK',
+      device: DEVICE_NAME,
+      syncStatus: GAS_URL ? 'pending' : 'local'
+    };
+    records.push(record);
+    cartMatchCount++;
+    document.getElementById('cart-count').textContent = cartMatchCount;
+    updateStats();
+    addHistory(record);
+    if (GAS_URL) { pendingCount++; updateStats(); sendToGAS(record, records.length - 1); }
+    setTimeout(() => {
+      clearSlotDisplay();
+      phase = 'slot';
+      updatePhase();
+    }, 1200);
+  } else {
+    // NG音声読み上げ
+    let spMsg = 'エヌジー。';
+    if (ngReason === '重複') {
+      spMsg += '重複です。この製品は既に照合済みです。';
+    } else if (ngReason === '台車不一致') {
+      spMsg += '台車が違います。期待: ' + cartExpect + '、読取: ' + cartActual;
+    } else if (ngReason === '差込口不一致') {
+      spMsg += '差込口が違います。期待: ' + slotExpect + '、読取: ' + (slotActual || 'なし');
+    } else {
+      spMsg += '照合が一致しません。';
+    }
+    speakNG(spMsg);
+    statusEl.textContent = '✗ NG（' + ngReason + '）- クリアして再読取';
+    const record = {
+      time: new Date().toLocaleString('ja-JP'),
+      cart: cartQR,
+      slot: slotExpect || '',
+      label: rawLabel,
+      cartExtracted: cartActual,
+      slotExtracted: slotActual || '',
+      result: 'NG(' + ngReason + ')',
+      device: DEVICE_NAME,
+      syncStatus: 'local'
+    };
+    records.push(record);
+    updateStats();
+    addHistory(record);
+  }
+
+  document.getElementById('slide-submit').classList.remove('disabled');
+}
+
+function clearSlots() {
+  clearSlotDisplay();
+  resultEl.className = 'result-banner';
+  resultEl.innerHTML = '';
+  if (cartQR) {
+    phase = 'slot';
+  } else {
+    phase = 'cart';
+  }
+  updatePhase();
+}
+
+function clearSlotDisplay() {
+  slotQR = null; labelRaw = null;
+  document.getElementById('value1').textContent = '';
+  document.getElementById('value2').textContent = '';
+  document.getElementById('extracted2').textContent = '';
+  document.getElementById('slot1').classList.remove('filled', 'target');
+  document.getElementById('slot2').classList.remove('filled', 'target');
+  resultEl.className = 'result-banner';
+  resultEl.innerHTML = '';
+}
+
+function truncate(s, n) { return s.length > n ? s.substring(0, n) + '...' : s; }
+
+// =========== 台車完了 ===========
+function completeCart() {
+  cartQR = null;
+  cartMatchCount = 0;
+  totalCarts++;
+  document.getElementById('cart-value').textContent = '未読取';
+  document.getElementById('cart-bar').classList.add('empty');
+  document.getElementById('cart-count').textContent = '0';
+  document.getElementById('cart-complete-slider').classList.add('disabled');
+  clearSlotDisplay();
+  phase = 'cart';
+  updatePhase();
+  beep(600, 100);
+  setTimeout(() => beep(900, 100), 120);
+  setTimeout(() => beep(1200, 150), 240);
+  statusEl.textContent = '台車完了! (' + totalCarts + '台完了) → 次の台車へ';
+}
+
+// =========== GAS送信 ===========
+async function sendToGAS(record, idx) {
+  try {
+    await fetch(GAS_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        time: record.time,
+        cart: record.cart,
+        slot: record.slot,
+        label: record.label,
+        cartExtracted: record.cartExtracted,
+        slotExtracted: record.slotExtracted,
+        result: record.result,
+        device: record.device
+      })
+    });
+    records[idx].syncStatus = 'synced';
+    pendingCount--; syncedCount++;
+  } catch (e) {
+    records[idx].syncStatus = 'failed';
+    pendingCount--; failedCount++;
+  }
+  updateStats();
+  updateHistoryItem(idx);
+}
+
+// =========== 統計・履歴 ===========
+function updateStats() {
+  document.getElementById('stat-total').textContent = records.length;
+  document.getElementById('stat-ok').textContent = records.filter(r => r.result === 'OK').length;
+  document.getElementById('stat-ng').textContent = records.filter(r => r.result === 'NG').length;
+  if (GAS_URL) {
+    const parts = [];
+    if (syncedCount > 0) parts.push('✓' + syncedCount);
+    if (pendingCount > 0) parts.push('…' + pendingCount);
+    if (failedCount > 0) parts.push('✗' + failedCount);
+    document.getElementById('stat-sync').textContent = parts.join(' ') || '-';
+  } else {
+    document.getElementById('stat-sync').textContent = 'OFF';
+  }
+}
+
+function addHistory(record) {
+  const hist = document.getElementById('history');
+  const div = document.createElement('div');
+  div.className = 'history-item';
+  div.dataset.idx = records.length - 1;
+  div.innerHTML = renderHistoryItem(record);
+  hist.insertBefore(div, hist.firstChild);
+}
+
+function updateHistoryItem(idx) {
+  const items = document.querySelectorAll('.history-item');
+  for (const it of items) {
+    if (parseInt(it.dataset.idx, 10) === idx) { it.innerHTML = renderHistoryItem(records[idx]); break; }
+  }
+}
+
+function renderHistoryItem(r) {
+  let syncHtml = '';
+  if (r.syncStatus === 'synced') syncHtml = '<span class="history-sync synced">☁✓</span>';
+  else if (r.syncStatus === 'pending') syncHtml = '<span class="history-sync pending">☁…</span>';
+  else if (r.syncStatus === 'failed') syncHtml = '<span class="history-sync failed">☁✗</span>';
+  const slotStr = r.slot ? '[' + r.slot + ']' : '';
+  return `
+    <span class="history-values">${escapeHtml(r.cart)}${slotStr} / ${escapeHtml(r.cartExtracted)}${r.slotExtracted ? '-' + escapeHtml(r.slotExtracted) : ''}</span>
+    <span class="history-tag ${r.result === 'OK' ? 'ok' : 'ng'}">${r.result}</span>
+    ${syncHtml}
+  `;
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// =========== 重複チェック用 ===========
+let matchedSet = new Set(); // "台車QR|差込口" の組み合わせを保持
+
+function isDuplicate(cartPart, slotNum) {
+  const key = cartPart + '|' + (slotNum || '');
+  return matchedSet.has(key);
+}
+
+function addToMatched(cartPart, slotNum) {
+  const key = cartPart + '|' + (slotNum || '');
+  matchedSet.add(key);
+}
+
+// =========== 音声フィードバック ===========
+function beep(freq, duration) {
+  try {
+    const c = new (window.AudioContext || window.webkitAudioContext)();
+    const o = c.createOscillator(); const g = c.createGain();
+    o.frequency.value = freq; o.connect(g); g.connect(c.destination); g.gain.value = 0.3;
+    o.start(); setTimeout(() => { o.stop(); c.close(); }, duration);
+  } catch (e) {}
+}
+
+function playPinpon() {
+  try {
+    const c = new (window.AudioContext || window.webkitAudioContext)();
+    const g = c.createGain();
+    g.connect(c.destination);
+    g.gain.value = 1.0;
+    // ピン（高音）
+    const o1 = c.createOscillator();
+    o1.frequency.value = 880;
+    o1.connect(g);
+    o1.start(c.currentTime);
+    o1.stop(c.currentTime + 0.25);
+    // ポーン（低音）
+    const o2 = c.createOscillator();
+    o2.frequency.value = 660;
+    o2.connect(g);
+    o2.start(c.currentTime + 0.28);
+    o2.stop(c.currentTime + 0.6);
+    setTimeout(() => c.close(), 700);
+  } catch (e) {}
+}
+
+function speakNG(message) {
+  try {
+    const u = new SpeechSynthesisUtterance(message);
+    u.lang = 'ja-JP';
+    u.rate = 1.2;
+    u.volume = 1.0;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+
+// =========== スライダー共通 ===========
+function makeSlider(sliderEl, thumbEl, fillEl, onComplete, thumbW) {
+  thumbW = thumbW || 40;
+  const margin = 3;
+  let dragging = false, startX = 0, curX = 0;
+  function getMax() { return sliderEl.offsetWidth - thumbW - margin * 2; }
+  function start(e) {
+    if (sliderEl.classList.contains('disabled')) return;
+    dragging = true;
+    startX = (e.touches ? e.touches[0].clientX : e.clientX) - curX;
+    thumbEl.style.transition = 'none'; fillEl.style.transition = 'none';
+  }
+  function move(e) {
+    if (!dragging) return;
+    e.preventDefault();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    curX = Math.max(0, Math.min(getMax(), clientX - startX));
+    thumbEl.style.transform = 'translateX(' + curX + 'px)';
+    fillEl.style.width = (curX + thumbW + margin) + 'px';
+    if (curX >= getMax() - 5) { finish(); }
+  }
+  function end() {
+    if (!dragging) return;
+    dragging = false;
+    thumbEl.style.transition = ''; fillEl.style.transition = '';
+    if (curX < getMax() - 5) { curX = 0; thumbEl.style.transform = 'translateX(0)'; fillEl.style.width = (thumbW + margin) + 'px'; }
+  }
+  function finish() {
+    dragging = false;
+    onComplete();
+    setTimeout(() => { curX = 0; thumbEl.style.transform = 'translateX(0)'; fillEl.style.width = (thumbW + margin) + 'px'; }, 150);
+  }
+  thumbEl.addEventListener('touchstart', start, { passive: false });
+  thumbEl.addEventListener('mousedown', start);
+  document.addEventListener('touchmove', move, { passive: false });
+  document.addEventListener('mousemove', move);
+  document.addEventListener('touchend', end);
+  document.addEventListener('mouseup', end);
+}
+
+// 読取スライダー
+makeSlider(
+  document.getElementById('capture-slider'),
+  document.getElementById('capture-thumb'),
+  document.getElementById('capture-fill'),
+  onCapture
+);
+
+// 台車完了スライダー
+makeSlider(
+  document.getElementById('cart-complete-slider'),
+  document.getElementById('cc-thumb'),
+  document.getElementById('cc-fill'),
+  completeCart
+);
+
+// アプリ終了スライダー
+makeSlider(
+  document.getElementById('slide-submit'),
+  document.getElementById('end-thumb'),
+  document.getElementById('end-fill'),
+  completeApp
+);
+
+async function completeApp() {
+  scanning = false;
+  const endMsg = document.getElementById('end-message');
+  if (GAS_URL) {
+    endMsg.textContent = '送信中...';
+    document.getElementById('main-app').classList.add('hidden');
+    document.getElementById('end-app').classList.remove('hidden');
+    let waited = 0;
+    while (pendingCount > 0 && waited < 10000) { await new Promise(r => setTimeout(r, 200)); waited += 200; }
+    if (failedCount > 0) {
+      endMsg.textContent = '送信完了（成功:' + syncedCount + '件 失敗:' + failedCount + '件）失敗分はCSVで取得してください。';
+    } else {
+      endMsg.textContent = '全' + syncedCount + '件をスプレッドシートに保存しました。（台車' + totalCarts + '台完了）';
+    }
+  } else {
+    endMsg.textContent = totalCarts + '台の台車を処理しました。CSVでダウンロードしてください。';
+    document.getElementById('main-app').classList.add('hidden');
+    document.getElementById('end-app').classList.remove('hidden');
+  }
+  if (video.srcObject) { video.srcObject.getTracks().forEach(t => t.stop()); }
+}
+
+function downloadCSV() {
+  const header = '日時,台車QR,差込口,製品ラベル,抽出台車,抽出差込口,結果,端末,同期\n';
+  const rows = records.map(r =>
+    '"' + r.time + '","' + r.cart + '","' + r.slot + '","' + (r.label||'').replace(/"/g, '""') + '","' + r.cartExtracted + '","' + r.slotExtracted + '",' + r.result + ',"' + r.device + '",' + r.syncStatus
+  ).join('\n');
+  const blob = new Blob(['\uFEFF' + header + rows], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'subako_' + new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// =========== GASコード（スプレッドシート側のヘッダーも変更必要） ===========
+// A1:日時 B1:台車QR C1:差込口 D1:製品ラベル E1:抽出台車 F1:抽出差込口 G1:結果 H1:端末
+
+// =========== 起動 ===========
+loadSetup();
+if (GAS_URL) { document.getElementById('gas-url').value = GAS_URL; document.getElementById('device-name').value = DEVICE_NAME; }
+</script>
+</body>
+</html>
