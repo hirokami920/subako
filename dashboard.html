@@ -279,6 +279,9 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
   .mc-id{font-size:14px}
   .cart-btns{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding-bottom:4px}
   .cbtn{flex-shrink:0;padding:4px 12px;font-size:13px}
+  .cart-selector{padding-bottom:60px}
+  .cart-sel-row{flex-wrap:wrap;gap:4px}
+  .auto-toggle{font-size:11px;padding:5px 12px}
   .mobile-nav{
     display:flex;position:fixed;bottom:0;left:0;right:0;
     background:var(--bg-card);border-top:1px solid var(--border);
@@ -490,7 +493,11 @@ function parseVerifyRows(rows){
   if(lastCart){
     S.lastVerifiedCart=lastCart;S.lastVerifiedSlot=lastSlot;S.lastVerifiedTime=lastTime;
     if(lastLabel){const hi=lastLabel.indexOf('#');S.lastVerifiedLabel=hi>0?lastLabel.substring(0,hi):lastLabel}
-    if(S.autoFollow&&S.cartData&&S.cartData.carts[lastCart])S.selectedCart=lastCart;
+    // Auto-follow: switch selected cart to the latest verified cart
+    if(S.autoFollow&&S.cartData&&S.cartData.carts[lastCart]){
+      console.log('[AutoFollow] switching to',lastCart);
+      S.selectedCart=lastCart;
+    }
   }
 }
 
@@ -720,7 +727,7 @@ const W={
       el.innerHTML='<span style="color:#ef4444">接続失敗: '+e.message+'</span>';
     }
   },
-  sel(cid){S.selectedCart=cid;S.autoFollow=false;render()},
+  sel(cid){S.selectedCart=cid;render()},
   tog(cid,sk){
     if(!S.verified[cid])S.verified[cid]=new Set();
     const k=typeof sk==='string'?sk:parseInt(sk);
