@@ -613,9 +613,8 @@ function mobileTabsHTML(){
   return'<div class="view-tabs">'+
     '<div class="vtab '+(S.mobileView==='cart'?'active':'')+'" onclick="W.setV(\'cart\')">📦 台車</div>'+
     '<div class="vtab '+(S.mobileView==='all'?'active':'')+'" onclick="W.setV(\'all\')">📊 一覧</div>'+
-    '<div class="vtab '+(S.autoFollow?'active':'')+'" onclick="W.toggleAuto()">🔄 '+(S.autoFollow?'追従ON':'追従OFF')+'</div>'+
-    '<div class="vtab" onclick="W.showCsv()">📂</div>'+
-    '<div class="vtab" onclick="W.showSettings()">⚙</div></div>';
+    '<div class="vtab '+(S.autoFollow?'active':'')+'" onclick="W.toggleAuto()">🔄 '+(S.autoFollow?'ON':'OFF')+'</div>'+
+    '</div>';
 }
 
 function leftHTML(ids){
@@ -673,11 +672,15 @@ function rightHTML(ids){
 }
 
 function mobileNavHTML(ids){
-  return'<div class="mobile-nav">'+ids.map(id=>{
+  return'<div class="mobile-nav">'+
+    '<button class="mnav-btn" onclick="W.showCsv()" style="font-size:11px;font-family:var(--font-body)">📂<span class="mnav-pct">CSV</span></button>'+
+    ids.map(id=>{
     const s=cartStats(id);const cp=s.total>0?(s.done/s.total*100).toFixed(0):0;
     let cls=id===S.selectedCart?'active':'';if(s.complete)cls+=' ndone';
     return'<button class="mnav-btn '+cls+'" onclick="W.sel(\''+id+'\');W.setV(\'cart\')"><span>'+id+'</span><span class="mnav-pct">'+(s.complete?'✓':cp+'%')+'</span></button>';
-  }).join('')+'</div>';
+  }).join('')+
+    '<button class="mnav-btn" onclick="W.showSettings()" style="font-size:11px;font-family:var(--font-body)">⚙<span class="mnav-pct">設定</span></button>'+
+    '</div>';
 }
 
 function csvModalHTML(){
