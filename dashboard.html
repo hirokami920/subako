@@ -270,7 +270,7 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
   .progress-bar-outer{height:22px}
   .progress-text{font-size:11px}
   .main-area{flex-direction:column}
-  .left-panel{width:100%;max-width:none;border-right:none;border-bottom:1px solid var(--border-light);padding:10px 12px;flex-shrink:0;flex:1}
+  .left-panel{width:100%;max-width:none;border-right:none;border-bottom:1px solid var(--border-light);padding:10px 12px 64px;flex-shrink:0;flex:1}
   .current-id{font-size:52px}
   .lp-value{font-size:14px}
   .lcell{font-size:7px}
@@ -279,7 +279,7 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
   .mc-id{font-size:14px}
   .cart-btns{overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;padding-bottom:4px}
   .cbtn{flex-shrink:0;padding:4px 12px;font-size:13px}
-  .cart-selector{padding-bottom:60px}
+  .cart-selector{padding-bottom:60px;display:none}
   .cart-sel-row{flex-wrap:wrap;gap:4px}
   .auto-toggle{font-size:11px;padding:5px 12px}
   .mobile-nav{
@@ -611,9 +611,10 @@ function progressHTML(a,pct){
 
 function mobileTabsHTML(){
   return'<div class="view-tabs">'+
-    '<div class="vtab '+(S.mobileView==='cart'?'active':'')+'" onclick="W.setV(\'cart\')">📦 作業台車</div>'+
-    '<div class="vtab '+(S.mobileView==='all'?'active':'')+'" onclick="W.setV(\'all\')">📊 全台車一覧</div>'+
-    '<div class="vtab" onclick="W.showCsv()">📂 CSV</div>'+
+    '<div class="vtab '+(S.mobileView==='cart'?'active':'')+'" onclick="W.setV(\'cart\')">📦 台車</div>'+
+    '<div class="vtab '+(S.mobileView==='all'?'active':'')+'" onclick="W.setV(\'all\')">📊 一覧</div>'+
+    '<div class="vtab '+(S.autoFollow?'active':'')+'" onclick="W.toggleAuto()">🔄 '+(S.autoFollow?'追従ON':'追従OFF')+'</div>'+
+    '<div class="vtab" onclick="W.showCsv()">📂</div>'+
     '<div class="vtab" onclick="W.showSettings()">⚙</div></div>';
 }
 
