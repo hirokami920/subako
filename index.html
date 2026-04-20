@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>巣箱照合システム</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=IBM+Plex+Mono:wght@600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -13,17 +13,17 @@
   --blue-800:#1e40af;
   --bg:#f0f5fa;--bg-card:#ffffff;
   --text:#1a2b3c;--text2:#5a7088;--text3:#94a8bc;
-  --border:#d4e2f0;
-  --done:#16a34a;--done-bg:#dcfce7;
+  --border:#d4e2f0;--border-light:#e8f0f8;
+  --done:#16a34a;--done-bg:#dcfce7;--done-border:#86efac;
+  --ng:#dc2626;
   --shadow:0 1px 3px rgba(30,64,120,0.08);
   --shadow-md:0 4px 16px rgba(30,64,120,0.1);
   --shadow-lg:0 12px 40px rgba(30,64,120,0.14);
+  --radius:12px;--radius-sm:8px;
   --font-body:'Noto Sans JP',sans-serif;
   --font-mono:'IBM Plex Mono',monospace;
 }
 html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
-
-/* Background pattern */
 body{
   background:
     radial-gradient(ellipse at 20% 50%,rgba(59,130,246,0.06) 0%,transparent 60%),
@@ -31,17 +31,13 @@ body{
     radial-gradient(ellipse at 60% 80%,rgba(96,165,250,0.05) 0%,transparent 50%),
     var(--bg);
 }
-
 .page{
   min-height:100vh;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;padding:24px;
+  justify-content:center;padding:24px;gap:0;
 }
 
-/* Header area */
-.portal-header{
-  text-align:center;margin-bottom:48px;
-  animation:fadeUp 0.6s cubic-bezier(0.22,1,0.36,1) both;
-}
+/* Header */
+.portal-header{text-align:center;margin-bottom:32px;animation:fadeUp 0.6s cubic-bezier(0.22,1,0.36,1) both}
 .portal-icon{
   width:72px;height:72px;margin:0 auto 16px;
   background:linear-gradient(135deg,var(--blue-600),var(--blue-500));
@@ -49,19 +45,51 @@ body{
   box-shadow:0 8px 24px rgba(37,99,235,0.3);
 }
 .portal-icon svg{width:40px;height:40px}
-.portal-title{
-  font-size:32px;font-weight:900;color:var(--blue-800);
-  letter-spacing:1px;margin-bottom:6px;
-}
+.portal-title{font-size:32px;font-weight:900;color:var(--blue-800);letter-spacing:1px;margin-bottom:6px}
 .portal-sub{font-size:15px;color:var(--text2);font-weight:500;line-height:1.6}
 
-/* Cards container */
+/* CSV Section */
+.csv-section{
+  max-width:1000px;width:100%;margin-bottom:28px;
+  animation:fadeUp 0.6s 0.1s cubic-bezier(0.22,1,0.36,1) both;
+}
+.csv-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px 24px;box-shadow:var(--shadow);display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+}
+.csv-card-left{display:flex;align-items:center;gap:12px;flex:1;min-width:200px}
+.csv-icon{
+  width:44px;height:44px;border-radius:12px;background:var(--blue-50);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+.csv-icon svg{width:22px;height:22px}
+.csv-info h3{font-size:15px;font-weight:800;color:var(--text);margin-bottom:2px}
+.csv-info p{font-size:11px;color:var(--text3);line-height:1.4}
+.csv-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.csv-upload-btn{
+  display:inline-flex;align-items:center;gap:6px;
+  background:linear-gradient(135deg,var(--blue-600),var(--blue-500));
+  color:#fff;border:none;border-radius:var(--radius-sm);padding:10px 20px;
+  font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font-body);
+  box-shadow:0 2px 8px rgba(37,99,235,0.3);transition:all 0.2s;
+}
+.csv-upload-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(37,99,235,0.4)}
+.csv-status{font-size:11px;color:var(--text3);min-width:100px}
+.csv-status.ok{color:var(--done);font-weight:700}
+.csv-status.err{color:var(--ng);font-weight:700}
+.gas-settings-btn{
+  background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:8px 14px;font-size:11px;color:var(--text2);cursor:pointer;
+  font-family:var(--font-body);font-weight:600;transition:all 0.2s;
+}
+.gas-settings-btn:hover{border-color:var(--blue-400);color:var(--blue-600)}
+input[type=file]{display:none}
+
+/* Cards */
 .cards{
   display:flex;gap:24px;max-width:1000px;width:100%;
   justify-content:center;flex-wrap:wrap;
 }
-
-/* Card */
 .card{
   flex:1;min-width:260px;max-width:320px;
   background:var(--bg-card);border:1px solid var(--border);border-radius:20px;
@@ -76,68 +104,64 @@ body{
 .card:nth-child(1)::before{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
 .card:nth-child(2)::before{background:linear-gradient(90deg,var(--blue-500),var(--blue-400))}
 .card:nth-child(3)::before{background:linear-gradient(90deg,var(--done),#22c55e)}
-.card:hover{
-  transform:translateY(-6px);
-  box-shadow:var(--shadow-lg);
-}
+.card:hover{transform:translateY(-6px);box-shadow:var(--shadow-lg)}
 .card:hover::before{height:6px}
 .card:active{transform:translateY(-2px)}
+.card:nth-child(1){animation:fadeUp 0.6s 0.2s cubic-bezier(0.22,1,0.36,1) both}
+.card:nth-child(2){animation:fadeUp 0.6s 0.35s cubic-bezier(0.22,1,0.36,1) both}
+.card:nth-child(3){animation:fadeUp 0.6s 0.5s cubic-bezier(0.22,1,0.36,1) both}
 
-/* Staggered animation */
-.card:nth-child(1){animation:fadeUp 0.6s 0.15s cubic-bezier(0.22,1,0.36,1) both}
-.card:nth-child(2){animation:fadeUp 0.6s 0.3s cubic-bezier(0.22,1,0.36,1) both}
-.card:nth-child(3){animation:fadeUp 0.6s 0.45s cubic-bezier(0.22,1,0.36,1) both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
 
-@keyframes fadeUp{
-  from{opacity:0;transform:translateY(24px)}
-  to{opacity:1;transform:translateY(0)}
-}
-
-.card-icon{
-  width:56px;height:56px;border-radius:14px;
-  display:flex;align-items:center;justify-content:center;margin-bottom:16px;
-}
+.card-icon{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:16px}
 .card:nth-child(1) .card-icon{background:#fef3c7}
 .card:nth-child(2) .card-icon{background:var(--blue-100)}
 .card:nth-child(3) .card-icon{background:var(--done-bg)}
 .card-icon svg{width:28px;height:28px}
-
 .card-title{font-size:20px;font-weight:800;margin-bottom:6px;color:var(--text)}
 .card-desc{font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:16px}
-
 .card-action{
   display:inline-flex;align-items:center;gap:6px;
-  font-size:13px;font-weight:700;
-  padding:8px 18px;border-radius:10px;transition:all 0.2s;
+  font-size:13px;font-weight:700;padding:8px 18px;border-radius:10px;transition:all 0.2s;
 }
 .card:nth-child(1) .card-action{background:#fef3c7;color:#b45309}
 .card:nth-child(2) .card-action{background:var(--blue-50);color:var(--blue-600)}
 .card:nth-child(3) .card-action{background:var(--done-bg);color:var(--done)}
 .card:hover .card-action{transform:translateX(4px)}
-
 .card-arrow{transition:transform 0.2s}
 .card:hover .card-arrow{transform:translateX(3px)}
+.card-features{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px}
+.feature-tag{font-size:10px;font-weight:600;padding:3px 8px;border-radius:6px;background:var(--bg);color:var(--text3);border:1px solid var(--border)}
 
-/* Features list */
-.card-features{
-  display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;
+/* GAS Modal */
+.modal-bg{position:fixed;inset:0;background:rgba(30,58,95,0.4);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:1000}
+.modal-box{background:var(--bg-card);border-radius:var(--radius);padding:28px;width:520px;max-width:92vw;box-shadow:var(--shadow-lg);border:1px solid var(--border)}
+.modal-box h3{font-size:17px;font-weight:800;color:var(--blue-700);margin-bottom:8px}
+.modal-box p{font-size:12px;color:var(--text2);margin-bottom:16px;line-height:1.6}
+.modal-box input{
+  width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:10px 12px;color:var(--text);font-size:13px;font-family:var(--font-mono);margin-bottom:10px;
 }
-.feature-tag{
-  font-size:10px;font-weight:600;padding:3px 8px;border-radius:6px;
-  background:var(--bg);color:var(--text3);border:1px solid var(--border);
-}
+.modal-box input:focus{outline:none;border-color:var(--blue-400);box-shadow:0 0 0 3px var(--blue-100)}
+.modal-btns{display:flex;gap:8px;justify-content:flex-end}
+.mbtn{padding:8px 20px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-family:var(--font-body);font-weight:700;font-size:13px}
+.mbtn-save{background:var(--blue-600);color:#fff}
+.mbtn-cancel{background:var(--bg);color:var(--text2);border:1px solid var(--border) !important}
 
 /* Footer */
 .portal-footer{
-  margin-top:48px;text-align:center;font-size:11px;color:var(--text3);
-  animation:fadeUp 0.6s 0.45s cubic-bezier(0.22,1,0.36,1) both;
+  margin-top:32px;text-align:center;font-size:11px;color:var(--text3);
+  animation:fadeUp 0.6s 0.6s cubic-bezier(0.22,1,0.36,1) both;
 }
 
 /* Mobile */
 @media(max-width:640px){
-  .portal-header{margin-bottom:32px}
+  .portal-header{margin-bottom:20px}
   .portal-title{font-size:24px}
   .portal-sub{font-size:13px}
+  .csv-card{padding:14px 16px;gap:10px}
+  .csv-card-left{min-width:auto}
+  .csv-info h3{font-size:13px}
   .cards{gap:16px}
   .card{padding:24px 20px;min-width:auto}
   .card-title{font-size:18px}
@@ -147,7 +171,7 @@ body{
 </style>
 </head>
 <body>
-<div class="page">
+<div class="page" id="page">
 
   <div class="portal-header">
     <div class="portal-icon">
@@ -160,6 +184,30 @@ body{
     <p class="portal-sub">ラベル照合・QR読み取り・進捗のリアルタイム可視化</p>
   </div>
 
+  <!-- CSV Upload Section -->
+  <div class="csv-section">
+    <div class="csv-card">
+      <div class="csv-card-left">
+        <div class="csv-icon">
+          <svg viewBox="0 0 22 22" fill="none"><path d="M6 18h10M11 4v10m-3-3l3 3 3-3" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="csv-info">
+          <h3>📂 本日のCSV取込</h3>
+          <p>朝一でCSVファイルを取り込んでから各アプリをご利用ください</p>
+        </div>
+      </div>
+      <div class="csv-actions">
+        <label>
+          <input type="file" id="csv-file" accept=".csv">
+          <span class="csv-upload-btn">CSVを取り込む</span>
+        </label>
+        <span class="csv-status" id="csv-status"></span>
+        <button class="gas-settings-btn" onclick="W.showGas()">⚙ GAS設定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- App Cards -->
   <div class="cards">
 
     <a class="card" href="label.html">
@@ -244,5 +292,100 @@ body{
   </div>
 
 </div>
+
+<!-- GAS Settings Modal -->
+<div class="modal-bg" id="gas-modal" style="display:none" onclick="W.closeGas(event)">
+  <div class="modal-box" onclick="event.stopPropagation()">
+    <h3>⚙ GAS連携設定</h3>
+    <p>GAS Web App URLを設定します。全アプリで共通のURLを使用します。</p>
+    <input type="text" id="gas-url-input" placeholder="https://script.google.com/macros/s/.../exec">
+    <div class="modal-btns">
+      <button class="mbtn mbtn-cancel" onclick="W.closeGasForce()">キャンセル</button>
+      <button class="mbtn mbtn-save" onclick="W.saveGas()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+let gasUrl='';
+try{gasUrl=localStorage.getItem('subako_gas_url')||''}catch(e){}
+
+// ===== CSV UPLOAD =====
+document.getElementById('csv-file').addEventListener('change',function(e){
+  const file=e.target.files[0];
+  if(!file)return;
+  const statusEl=document.getElementById('csv-status');
+  statusEl.className='csv-status';
+  statusEl.textContent='読み込み中...';
+
+  const reader=new FileReader();
+  reader.onload=async function(ev){
+    const text=ev.target.result;
+    const lines=text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
+    if(lines.length<2){
+      statusEl.className='csv-status err';
+      statusEl.textContent='CSVデータが空です';
+      return;
+    }
+
+    if(!gasUrl){
+      statusEl.className='csv-status err';
+      statusEl.textContent='GAS URLが未設定です。⚙ GAS設定から設定してください';
+      return;
+    }
+
+    statusEl.textContent='アップロード中... ('+lines.length+'行)';
+    try{
+      const rows=lines.map(l=>[l]);
+      const r=await fetch(gasUrl,{
+        method:'POST',redirect:'follow',
+        headers:{'Content-Type':'text/plain'},
+        body:JSON.stringify({action:'uploadCSV',rows:rows})
+      });
+      const result=await r.json();
+      if(result.status==='ok'){
+        statusEl.className='csv-status ok';
+        statusEl.textContent='✓ 取込完了！ '+(result.count||lines.length)+'行を保存しました';
+      }else{
+        statusEl.className='csv-status err';
+        statusEl.textContent='エラー: '+(result.message||'不明');
+      }
+    }catch(err){
+      statusEl.className='csv-status err';
+      statusEl.textContent='アップロード失敗: '+err.message;
+    }
+  };
+  reader.readAsText(file,'Shift_JIS');
+});
+
+// ===== GAS SETTINGS =====
+const W={
+  showGas(){
+    document.getElementById('gas-modal').style.display='flex';
+    document.getElementById('gas-url-input').value=gasUrl;
+  },
+  closeGas(e){
+    if(e.target.id==='gas-modal')document.getElementById('gas-modal').style.display='none';
+  },
+  closeGasForce(){document.getElementById('gas-modal').style.display='none'},
+  saveGas(){
+    const url=document.getElementById('gas-url-input').value.trim();
+    gasUrl=url;
+    try{localStorage.setItem('subako_gas_url',url)}catch(e){}
+    document.getElementById('gas-modal').style.display='none';
+    const statusEl=document.getElementById('csv-status');
+    statusEl.className='csv-status ok';
+    statusEl.textContent='GAS URLを保存しました';
+  }
+};
+window.W=W;
+
+// Show GAS setup hint if not configured
+if(!gasUrl){
+  const statusEl=document.getElementById('csv-status');
+  statusEl.textContent='⚙ GAS設定からURLを設定してください';
+}
+</script>
 </body>
 </html>
