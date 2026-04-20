@@ -229,9 +229,24 @@ let elResult,elMsg,elShisho,elLabel,elLastInfo,elBeforeBody,elAfterBody,elBefore
 
 function buildApp(){
   const total=items.length,done=verified.size,pct=total>0?(done/total*100):0;
+  // Extract packing date and cart count from items
+  const now=new Date();
+  const issueDate=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
+  let packDate='';
+  const cartSet=new Set();
+  items.forEach(it=>{
+    if(!packDate&&it.date&&it.date.length===8)packDate=it.date.slice(0,4)+'/'+it.date.slice(4,6)+'/'+it.date.slice(6,8);
+    if(it.cart)cartSet.add(it.cart);
+  });
+  const cartCount=cartSet.size;
+
   document.getElementById('app').innerHTML=
     '<div class="header"><span class="header-title">ラベル照合</span>'+
-    '<div class="header-chips"><span class="chip hl">製品 <span class="cv" id="chip-count">'+done+'/'+total+'</span></span></div>'+
+    '<div class="header-chips">'+
+    '<span class="chip">発行 <span class="cv">'+issueDate+'</span></span>'+
+    (packDate?'<span class="chip">梱包 <span class="cv">'+packDate+'</span></span>':'')+
+    '<span class="chip">台車 <span class="cv">'+cartCount+'台</span></span>'+
+    '<span class="chip hl">製品 <span class="cv" id="chip-count">'+done+'/'+total+'本</span></span></div>'+
     '<a class="hdr-btn" href="index.html">🏠 TOP</a></div>'+
 
     '<div class="progress-section"><div class="progress-bar-outer">'+
@@ -341,7 +356,7 @@ function updateProgress(){
   const total=items.length,done=verified.size,pct=total>0?(done/total*100):0;
   elProgressFill.style.width=pct+'%';
   elProgressText.textContent=pct.toFixed(1)+'%　'+done+' / '+total+' 照合済み';
-  elChipCount.textContent=done+'/'+total;
+  elChipCount.textContent=done+'/'+total+'本';
 }
 
 function renderComplete(){
