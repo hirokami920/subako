@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>統合ダッシュボード</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue-50:#eff6ff;--blue-100:#dbeafe;--blue-200:#bfdbfe;--blue-300:#93c5fd;
+  --blue-400:#60a5fa;--blue-500:#3b82f6;--blue-600:#2563eb;--blue-700:#1d4ed8;--blue-800:#1e40af;
+  --bg:#f0f5fa;--bg-card:#ffffff;
+  --text:#1a2b3c;--text2:#5a7088;--text3:#94a8bc;
+  --border:#d4e2f0;--border-light:#e8f0f8;
+  --done:#16a34a;--done-bg:#dcfce7;--done-border:#86efac;
+  --pending:#2563eb;--pending-bg:#dbeafe;--pending-border:#93c5fd;
+  --amber:#f59e0b;--amber-bg:#fef3c7;
+  --empty:#edf2f7;
+  --shadow:0 1px 3px rgba(30,64,120,0.08);
+  --shadow-md:0 4px 12px rgba(30,64,120,0.1);
+  --font-body:'Noto Sans JP',sans-serif;
+  --font-mono:'IBM Plex Mono',monospace;
+}
+html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;overflow:hidden}
+#app{display:flex;flex-direction:column;height:100vh}
+
+/* HEADER */
+.header{
+  background:linear-gradient(135deg,var(--blue-700),var(--blue-600),var(--blue-500));
+  padding:8px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;
+  box-shadow:0 2px 12px rgba(30,64,120,0.25);z-index:10;flex-wrap:wrap;
+}
+.header-title{font-size:20px;font-weight:900;color:#fff;letter-spacing:0.5px}
+.header-chips{display:flex;gap:8px;flex:1;align-items:center;flex-wrap:wrap}
+.chip{background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.25);border-radius:20px;padding:3px 12px;font-size:13px;color:rgba(255,255,255,0.95);display:flex;align-items:center;gap:5px;white-space:nowrap}
+.chip .cv{font-family:var(--font-mono);font-weight:700;color:#fff}
+.chip.hl{background:rgba(255,255,255,0.3)}
+.hdr-btn{background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);border-radius:8px;padding:4px 10px;color:#fff;cursor:pointer;font-size:11px;font-family:var(--font-body);font-weight:600;text-decoration:none}
+.poll-info{font-size:9px;color:rgba(255,255,255,0.6);font-family:var(--font-mono)}
+
+/* MAIN SPLIT */
+.main{display:flex;flex:1;overflow:hidden}
+.panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.panel-left{border-right:2px solid var(--border)}
+.panel-right{}
+
+/* Panel header */
+.panel-header{
+  padding:10px 16px;background:var(--bg-card);border-bottom:1px solid var(--border-light);
+  display:flex;align-items:center;gap:12px;flex-shrink:0;
+}
+.panel-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.panel-icon.label-icon{background:var(--amber-bg)}
+.panel-icon.subako-icon{background:var(--blue-100)}
+.panel-title{font-size:17px;font-weight:800;color:var(--text)}
+.panel-stats{display:flex;gap:8px;margin-left:auto;align-items:center}
+.pstat{
+  font-family:var(--font-mono);font-size:13px;font-weight:700;
+  padding:3px 10px;border-radius:8px;
+}
+.pstat-done{background:var(--done-bg);color:var(--done)}
+.pstat-total{background:var(--blue-50);color:var(--blue-600)}
+
+/* Progress bar */
+.prog{padding:8px 16px;background:var(--bg-card);border-bottom:1px solid var(--border-light);flex-shrink:0}
+.prog-outer{background:#d1fae5;border-radius:16px;height:24px;position:relative;overflow:hidden;border:1px solid #86efac}
+.prog-fill{height:100%;border-radius:16px;background:linear-gradient(90deg,#15803d,#16a34a,#22c55e);transition:width 0.8s}
+.prog-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--font-mono);font-weight:700;font-size:12px;color:#14532d;text-shadow:0 0 6px rgba(255,255,255,0.8);z-index:1}
+
+/* LEFT: Label verification lists */
+.label-content{flex:1;display:flex;overflow:hidden}
+.label-list{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:8px 12px}
+.label-list:first-child{border-right:1px solid var(--border-light)}
+.ll-header{font-size:14px;font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-shrink:0}
+.ll-header .cnt{font-family:var(--font-mono);font-size:12px;font-weight:700;padding:2px 8px;border-radius:8px}
+.ll-before{color:var(--amber)}
+.ll-before .cnt{background:var(--amber-bg);color:var(--amber)}
+.ll-after{color:var(--done)}
+.ll-after .cnt{background:var(--done-bg);color:var(--done)}
+.ll-scroll{flex:1;overflow-y:auto}
+table.lt{width:100%;border-collapse:collapse}
+table.lt th{position:sticky;top:0;background:var(--bg);padding:3px 6px;text-align:left;font-weight:700;color:var(--text3);border-bottom:1px solid var(--border);font-size:10px}
+table.lt td{padding:3px 6px;border-bottom:1px solid var(--border-light);font-family:var(--font-mono);font-size:12px;font-weight:500}
+.time-col{color:var(--text3);font-size:9px}
+
+/* RIGHT: Subako grid carts */
+.subako-content{flex:1;overflow-y:auto;padding:10px;display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start}
+.mini-cart{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:10px;
+  padding:8px;width:calc(50% - 5px);box-shadow:var(--shadow);
+}
+.mini-cart.mc-done{border-color:var(--done-border);background:#f7fef9}
+.mc-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.mc-id{font-family:var(--font-mono);font-size:16px;font-weight:700;color:var(--text)}
+.mc-badge{font-size:9px;padding:2px 8px;border-radius:10px;font-weight:700}
+.mcb-done{background:var(--done-bg);color:var(--done)}
+.mcb-prog{background:var(--blue-50);color:var(--blue-600)}
+.mc-stats{font-size:9px;color:var(--text3);margin-bottom:3px;font-family:var(--font-mono);font-weight:600}
+.mini-grid{display:grid;gap:1px}
+.mcell{aspect-ratio:1;border-radius:1px}
+.mcell.empty{background:var(--empty)}
+.mcell.pending{background:var(--blue-300)}
+.mcell.done{background:var(--done)}
+
+/* SETUP */
+.setup-screen{position:fixed;inset:0;background:linear-gradient(135deg,var(--blue-50),#fff,var(--blue-100));display:flex;align-items:center;justify-content:center;z-index:1000}
+.setup-card{background:var(--bg-card);border-radius:20px;padding:40px;text-align:center;box-shadow:0 10px 30px rgba(30,64,120,0.12);border:1px solid var(--border);max-width:520px;width:92%}
+.setup-card h2{font-size:22px;font-weight:900;color:var(--blue-700);margin-bottom:8px}
+.setup-card p{color:var(--text2);font-size:13px;margin-bottom:20px;line-height:1.6}
+.setup-card input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px;color:var(--text);font-size:13px;font-family:var(--font-mono);margin-bottom:10px}
+.setup-btn{background:linear-gradient(135deg,var(--blue-600),var(--blue-500));color:#fff;border:none;border-radius:10px;padding:12px 32px;font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font-body)}
+.setup-result{margin-top:12px;font-size:12px;min-height:20px}
+.loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,0.9);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:999;gap:12px}
+.spinner{width:40px;height:40px;border:4px solid var(--blue-100);border-top-color:var(--blue-500);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+*::-webkit-scrollbar{width:4px}
+*::-webkit-scrollbar-track{background:transparent}
+*::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ============================================================
+// STATE
+// ============================================================
+let gasUrl='',phase='init',pollTimer=null,lastPoll=null;
+// Label data
+let labelItems=null,labelVerified=new Set(),labelVerifiedList=[];
+// Subako data
+let subakoData=null,subakoVerified={};
+try{gasUrl=localStorage.getItem('subako_gas_url')||''}catch(e){}
+
+// ============================================================
+// GAS
+// ============================================================
+async function gasFetch(type){
+  const sep=gasUrl.includes('?')?'&':'?';
+  const r=await fetch(gasUrl+sep+'type='+type+'&t='+Date.now(),{redirect:'follow'});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return r.json();
+}
+
+// ============================================================
+// CSV PARSING
+// ============================================================
+function parseCSVItems(rows){
+  const items=[];
+  rows.forEach(row=>{
+    const line=String(row[0]||'').replace(/"/g,'').trim();if(!line)return;
+    const hi=line.indexOf('#');if(hi<0)return;
+    const key=line.substring(0,hi).trim();
+    const after=line.substring(hi+1);const ap=after.split(',');
+    const date=ap[0]||'';const ci=(ap[1]||'').trim();
+    let cart='',slot=-1,type=1;
+    if(ci.includes('-')){const s=ci.split('-');cart=s[0];slot=parseInt(s[1])}else{cart=ci;slot=-1;type=2}
+    items.push({key,date,cart,slot,type});
+  });
+  return items.length>0?items:null;
+}
+
+function buildSubakoData(items){
+  const carts={};let date='';
+  items.forEach(it=>{
+    if(!date&&it.date)date=it.date;
+    if(!carts[it.cart])carts[it.cart]={slots:{},type2:[],maxSlot:0};
+    if(it.type===1||it.slot>0){carts[it.cart].slots[it.slot]={key:it.key};if(it.slot>carts[it.cart].maxSlot)carts[it.cart].maxSlot=it.slot}
+    else carts[it.cart].type2.push({key:it.key});
+  });
+  return{carts,date,total:items.length};
+}
+
+function parseSubakoVerify(rows){
+  const v={};
+  rows.forEach(row=>{
+    let cartId=null,slotNum=null;
+    if(!Array.isArray(row))return;
+    const label=String(row[3]||'').trim();
+    let m=label.match(/#\d{8},(\d+_\d+)(?:-(\d+))?/);
+    if(m){cartId=m[1];slotNum=m[2]?parseInt(m[2]):null}
+    if(!cartId){
+      const rc=String(row[4]||'').trim();const cm=rc.match(/(\d+_\d+)/);
+      if(cm)cartId=cm[1];
+      if(cartId){const rs=parseInt(String(row[5]||''));if(!isNaN(rs)&&rs>0)slotNum=rs}
+    }
+    if(!cartId){
+      const cb=String(row[1]||'').trim();const bm=cb.match(/(\d+_\d+)/);
+      if(bm)cartId=bm[1];
+      if(cartId){const cs=parseInt(String(row[2]||''));if(!isNaN(cs)&&cs>0)slotNum=cs}
+    }
+    if(cartId){
+      if(!v[cartId])v[cartId]=new Set();
+      if(slotNum!==null&&!isNaN(slotNum)&&slotNum>0)v[cartId].add(slotNum);
+      else{let idx=0;while(v[cartId].has('t2-'+idx))idx++;v[cartId].add('t2-'+idx)}
+    }
+  });
+  return v;
+}
+
+function parseLabelVerify(rows){
+  const vSet=new Set(),vList=[];
+  if(!labelItems)return;
+  rows.forEach(row=>{
+    const key=String(Array.isArray(row)?row[1]||'':'').trim();if(!key)return;
+    const idx=labelItems.findIndex((it,i)=>it.key===key&&!vSet.has(i));
+    if(idx>=0){
+      vSet.add(idx);
+      vList.push({index:idx,key,time:String(Array.isArray(row)?row[0]||'':'')});
+    }
+  });
+  labelVerified=vSet;
+  labelVerifiedList=vList.reverse(); // newest first
+}
+
+// ============================================================
+// DATA LOADING
+// ============================================================
+async function loadAll(){
+  try{
+    // Load CSV
+    const csvData=await gasFetch('csv');
+    if(csvData&&csvData.status==='ok'&&csvData.data&&csvData.data.length>0){
+      let rows=csvData.data;
+      if(rows[0]&&String(rows[0][0]).includes('ラベル'))rows=rows.slice(1);
+      labelItems=parseCSVItems(rows);
+      if(labelItems)subakoData=buildSubakoData(labelItems);
+    }
+    if(!labelItems){phase='nodata';renderPhase();return}
+
+    // Load verifications
+    await pollData();
+
+    phase='app';
+    renderPhase();
+  }catch(e){
+    console.warn('loadAll error:',e);
+    phase='nodata';renderPhase();
+  }
+}
+
+async function pollData(){
+  try{
+    // Label verifications
+    try{
+      const lv=await gasFetch('labelverify');
+      if(Array.isArray(lv))parseLabelVerify(lv);
+    }catch(e){}
+
+    // Subako verifications
+    try{
+      const sv=await gasFetch('verify');
+      if(Array.isArray(sv))subakoVerified=parseSubakoVerify(sv);
+    }catch(e){}
+
+    lastPoll=new Date();
+    if(phase==='app')updateUI();
+  }catch(e){console.warn('poll error:',e)}
+}
+
+function startPoll(){
+  if(pollTimer)clearInterval(pollTimer);
+  pollTimer=setInterval(pollData,5000);
+}
+
+// ============================================================
+// STATS
+// ============================================================
+function subakoCartStats(cid){
+  const c=subakoData.carts[cid];
+  const skeys=Object.keys(c.slots);
+  const t1=skeys.length,t2c=c.type2.length,total=t1+t2c;
+  const vs=subakoVerified[cid]||new Set();
+  let d1=0;skeys.forEach(s=>{if(vs.has(parseInt(s)))d1++});
+  let d2=0;for(let i=0;i<t2c;i++){if(vs.has('t2-'+i))d2++}
+  return{t1,t2c,total,done:d1+d2,d1,d2,complete:(d1+d2)>=total&&total>0};
+}
+
+function subakoAllStats(){
+  if(!subakoData)return{tc:0,dc:0,ti:0,di:0};
+  const ids=Object.keys(subakoData.carts);
+  let ti=0,di=0,dc=0;
+  ids.forEach(id=>{const s=subakoCartStats(id);ti+=s.total;di+=s.done;if(s.complete)dc++});
+  return{tc:ids.length,dc,ti,di};
+}
+
+function sortCarts(ids){
+  return ids.sort((a,b)=>{const[ar,ac]=a.split('_').map(Number);const[br,bc]=b.split('_').map(Number);return ar!==br?ar-br:ac-bc});
+}
+
+function fmtD(d){if(!d||d.length!==8)return d;return d.slice(0,4)+'/'+d.slice(4,6)+'/'+d.slice(6,8)}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+// ============================================================
+// RENDER
+// ============================================================
+// DOM refs
+let elLabelProgFill,elLabelProgText,elLabelBeforeBody,elLabelAfterBody,elLabelBeforeCount,elLabelAfterCount,elLabelStats;
+let elSubakoProgFill,elSubakoProgText,elSubakoContent,elSubakoStats;
+let elPollInfo,elChipLabel,elChipSubako;
+
+function renderPhase(){
+  const app=document.getElementById('app');
+  if(phase==='setup'){
+    app.innerHTML='<div class="setup-screen"><div class="setup-card">'+
+      '<h2>統合ダッシュボード</h2><p>GAS URLを設定して接続してください</p>'+
+      '<input type="text" id="setup-url" placeholder="https://script.google.com/macros/s/.../exec" value="'+esc(gasUrl)+'">'+
+      '<button class="setup-btn" onclick="doConnect()">接続</button>'+
+      '<div class="setup-result" id="setup-result"></div></div></div>';
+  }else if(phase==='loading'){
+    app.innerHTML='<div class="loading-overlay"><div class="spinner"></div><div style="margin-top:12px;color:var(--text2);font-weight:600">データを読み込み中...</div></div>';
+  }else if(phase==='nodata'){
+    app.innerHTML='<div class="header"><span class="header-title">統合ダッシュボード</span><div style="flex:1"></div><a class="hdr-btn" href="index.html">🏠 TOP</a></div>'+
+      '<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;color:var(--text2)"><div style="font-size:48px">📊</div><div style="font-size:16px;font-weight:700">CSVデータがありません</div><a class="setup-btn" href="index.html" style="text-decoration:none;display:inline-block;margin-top:12px">TOPページへ</a></div>';
+  }else if(phase==='app'){
+    buildDashboard();
+    startPoll();
+  }
+}
+
+function buildDashboard(){
+  const now=new Date();
+  const issueDate=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
+  const packDate=labelItems&&labelItems[0]?fmtD(labelItems[0].date):'';
+  const cartSet=new Set();
+  if(labelItems)labelItems.forEach(it=>{if(it.cart)cartSet.add(it.cart)});
+  const totalItems=labelItems?labelItems.length:0;
+  const sa=subakoAllStats();
+
+  document.getElementById('app').innerHTML=
+    // Header
+    '<div class="header"><span class="header-title">統合ダッシュボード</span>'+
+    '<div class="header-chips">'+
+    '<span class="chip">発行 <span class="cv">'+issueDate+'</span></span>'+
+    (packDate?'<span class="chip">梱包 <span class="cv">'+packDate+'</span></span>':'')+
+    '<span class="chip">台車 <span class="cv">'+cartSet.size+'台</span></span>'+
+    '<span class="chip hl" id="chip-label">ラベル <span class="cv">'+labelVerified.size+'/'+totalItems+'</span></span>'+
+    '<span class="chip hl" id="chip-subako">巣箱 <span class="cv">'+sa.di+'/'+sa.ti+'</span></span>'+
+    '</div>'+
+    '<span class="poll-info" id="poll-info"></span>'+
+    '<a class="hdr-btn" href="index.html">🏠 TOP</a></div>'+
+
+    // Main split
+    '<div class="main">'+
+    // LEFT: Label
+    '<div class="panel panel-left">'+
+    '<div class="panel-header">'+
+    '<div class="panel-icon label-icon"><svg viewBox="0 0 24 24" fill="none" width="20" height="20"><rect x="3" y="5" width="18" height="14" rx="2" stroke="#b45309" stroke-width="2"/><path d="M7 9h10M7 13h5" stroke="#b45309" stroke-width="2" stroke-linecap="round"/></svg></div>'+
+    '<span class="panel-title">ラベル照合</span>'+
+    '<div class="panel-stats" id="label-stats"><span class="pstat pstat-done">'+labelVerified.size+'件完了</span><span class="pstat pstat-total">全'+totalItems+'件</span></div>'+
+    '</div>'+
+    '<div class="prog"><div class="prog-outer"><div class="prog-fill" id="label-prog-fill" style="width:0%"></div><div class="prog-text" id="label-prog-text">0%</div></div></div>'+
+    '<div class="label-content">'+
+    '<div class="label-list"><div class="ll-header ll-before">照合前 <span class="cnt" id="label-before-count">0</span></div><div class="ll-scroll"><table class="lt"><thead><tr><th>品番</th><th>台車</th></tr></thead><tbody id="label-before-body"></tbody></table></div></div>'+
+    '<div class="label-list"><div class="ll-header ll-after">照合済み <span class="cnt" id="label-after-count">0</span></div><div class="ll-scroll"><table class="lt"><thead><tr><th>品番</th><th>台車</th><th>時刻</th></tr></thead><tbody id="label-after-body"></tbody></table></div></div>'+
+    '</div></div>'+
+
+    // RIGHT: Subako
+    '<div class="panel panel-right">'+
+    '<div class="panel-header">'+
+    '<div class="panel-icon subako-icon"><svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M4 16V10l8-4 8 4v6l-8 4-4-2" stroke="#2563eb" stroke-width="2" fill="none"/><path d="M4 10l8 4 8-4M12 14v8" stroke="#2563eb" stroke-width="2"/></svg></div>'+
+    '<span class="panel-title">巣箱積み込み</span>'+
+    '<div class="panel-stats" id="subako-stats"><span class="pstat pstat-done">'+sa.di+'件完了</span><span class="pstat pstat-total">全'+sa.ti+'件</span></div>'+
+    '</div>'+
+    '<div class="prog"><div class="prog-outer"><div class="prog-fill" id="subako-prog-fill" style="width:0%"></div><div class="prog-text" id="subako-prog-text">0%</div></div></div>'+
+    '<div class="subako-content" id="subako-content"></div>'+
+    '</div></div>';
+
+  // Cache refs
+  elLabelProgFill=document.getElementById('label-prog-fill');
+  elLabelProgText=document.getElementById('label-prog-text');
+  elLabelBeforeBody=document.getElementById('label-before-body');
+  elLabelAfterBody=document.getElementById('label-after-body');
+  elLabelBeforeCount=document.getElementById('label-before-count');
+  elLabelAfterCount=document.getElementById('label-after-count');
+  elLabelStats=document.getElementById('label-stats');
+  elSubakoProgFill=document.getElementById('subako-prog-fill');
+  elSubakoProgText=document.getElementById('subako-prog-text');
+  elSubakoContent=document.getElementById('subako-content');
+  elSubakoStats=document.getElementById('subako-stats');
+  elPollInfo=document.getElementById('poll-info');
+  elChipLabel=document.getElementById('chip-label');
+  elChipSubako=document.getElementById('chip-subako');
+
+  updateUI();
+}
+
+function updateUI(){
+  if(!labelItems)return;
+  const total=labelItems.length;
+
+  // === Label side ===
+  const lDone=labelVerified.size;
+  const lPct=total>0?(lDone/total*100):0;
+  elLabelProgFill.style.width=lPct+'%';
+  elLabelProgText.textContent=lPct.toFixed(1)+'%　'+lDone+' / '+total+' 照合済み';
+  elLabelStats.innerHTML='<span class="pstat pstat-done">'+lDone+'件完了</span><span class="pstat pstat-total">全'+total+'件</span>';
+  elChipLabel.innerHTML='ラベル <span class="cv">'+lDone+'/'+total+'</span>';
+
+  // Before list
+  let bh='';
+  labelItems.forEach((it,i)=>{
+    if(labelVerified.has(i))return;
+    bh+='<tr><td>'+esc(it.key)+'</td><td>'+esc(it.cart+(it.slot>0?'-'+it.slot:''))+'</td></tr>';
+  });
+  elLabelBeforeBody.innerHTML=bh;
+  elLabelBeforeCount.textContent=total-lDone;
+
+  // After list
+  let ah='';
+  labelVerifiedList.forEach(v=>{
+    const it=labelItems[v.index];
+    ah+='<tr><td>'+esc(v.key)+'</td><td>'+esc(it.cart+(it.slot>0?'-'+it.slot:''))+'</td><td class="time-col">'+esc(v.time)+'</td></tr>';
+  });
+  elLabelAfterBody.innerHTML=ah;
+  elLabelAfterCount.textContent=lDone;
+
+  // === Subako side ===
+  if(subakoData){
+    const sa=subakoAllStats();
+    const sPct=sa.ti>0?(sa.di/sa.ti*100):0;
+    elSubakoProgFill.style.width=sPct+'%';
+    elSubakoProgText.textContent=sPct.toFixed(1)+'%　'+sa.di+' / '+sa.ti+' 照合済み（台車 '+sa.dc+'/'+sa.tc+'台完了）';
+    elSubakoStats.innerHTML='<span class="pstat pstat-done">'+sa.di+'件</span><span class="pstat pstat-total">台車'+sa.dc+'/'+sa.tc+'</span>';
+    elChipSubako.innerHTML='巣箱 <span class="cv">'+sa.di+'/'+sa.ti+'</span>';
+
+    // Mini carts
+    const ids=sortCarts(Object.keys(subakoData.carts));
+    let ch='';
+    ids.forEach(cid=>{
+      const c=subakoData.carts[cid];
+      const st=subakoCartStats(cid);
+      const vs=subakoVerified[cid]||new Set();
+      const cp=st.total>0?(st.done/st.total*100).toFixed(0):0;
+      let mg='';
+      for(let r=0;r<17;r++){for(let col=0;col<15;col++){
+        const sn=r*15+col+1;
+        const sd=c.slots[sn];
+        mg+='<div class="mcell '+(sd?(vs.has(sn)?'done':'pending'):'empty')+'"></div>';
+      }}
+      ch+='<div class="mini-cart'+(st.complete?' mc-done':'')+'">'+
+        '<div class="mc-top"><span class="mc-id">'+cid+'</span><span class="mc-badge '+(st.complete?'mcb-done':'mcb-prog')+'">'+(st.complete?'完了':cp+'%')+'</span></div>'+
+        '<div class="mc-stats">T1:'+st.d1+'/'+st.t1+(st.t2c>0?' | T2:'+st.d2+'/'+st.t2c:'')+'</div>'+
+        '<div class="mini-grid" style="grid-template-columns:repeat(15,1fr)">'+mg+'</div></div>';
+    });
+    elSubakoContent.innerHTML=ch;
+  }
+
+  // Poll info
+  if(lastPoll)elPollInfo.textContent='更新: '+lastPoll.toLocaleTimeString('ja-JP');
+}
+
+// ============================================================
+// CONNECT
+// ============================================================
+async function doConnect(){
+  const el=document.getElementById('setup-result');
+  const url=(document.getElementById('setup-url')||{}).value||'';
+  if(!url.trim()){el.innerHTML='<span style="color:#ef4444">URLを入力してください</span>';return}
+  gasUrl=url.trim();
+  try{localStorage.setItem('subako_gas_url',gasUrl)}catch(e){}
+  el.innerHTML='<span style="color:var(--blue-500)">接続中...</span>';
+  phase='loading';renderPhase();
+  await loadAll();
+}
+window.doConnect=doConnect;
+
+// ============================================================
+// INIT
+// ============================================================
+if(gasUrl){phase='loading';renderPhase();loadAll()}
+else{phase='setup';renderPhase()}
+</script>
+</body>
+</html>
