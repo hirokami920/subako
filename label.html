@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ラベル照合アプリ</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --blue-50:#eff6ff;--blue-100:#dbeafe;--blue-200:#bfdbfe;--blue-300:#93c5fd;
+  --blue-400:#60a5fa;--blue-500:#3b82f6;--blue-600:#2563eb;--blue-700:#1d4ed8;
+  --blue-800:#1e40af;
+  --bg:#f0f5fa;--bg-card:#ffffff;
+  --text:#1a2b3c;--text2:#5a7088;--text3:#94a8bc;
+  --border:#d4e2f0;--border-light:#e8f0f8;
+  --done:#16a34a;--done-bg:#dcfce7;--done-border:#86efac;
+  --ng:#dc2626;--ng-bg:#fef2f2;--ng-border:#fca5a5;
+  --pending:#2563eb;--pending-bg:#dbeafe;
+  --empty:#edf2f7;
+  --shadow:0 1px 3px rgba(30,64,120,0.08);
+  --shadow-md:0 4px 12px rgba(30,64,120,0.1);
+  --shadow-lg:0 10px 30px rgba(30,64,120,0.12);
+  --radius:12px;--radius-sm:8px;
+  --font-body:'Noto Sans JP',sans-serif;
+  --font-mono:'IBM Plex Mono',monospace;
+}
+html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+#app{display:flex;flex-direction:column;height:100vh}
+
+/* HEADER */
+.header{
+  background:linear-gradient(135deg,var(--blue-700),var(--blue-600),var(--blue-500));
+  padding:10px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;
+  box-shadow:0 2px 12px rgba(30,64,120,0.25);z-index:10;flex-wrap:wrap;
+}
+.header-title{font-size:22px;font-weight:900;color:#fff;letter-spacing:0.5px}
+.header-chips{display:flex;gap:8px;align-items:center;flex-wrap:wrap;flex:1}
+.chip{
+  background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.25);
+  border-radius:20px;padding:4px 14px;font-size:14px;color:rgba(255,255,255,0.95);
+  display:flex;align-items:center;gap:5px;white-space:nowrap;
+}
+.chip .cv{font-family:var(--font-mono);font-weight:700;color:#fff}
+.chip.hl{background:rgba(255,255,255,0.3);border-color:rgba(255,255,255,0.5)}
+.hdr-btn{
+  background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);
+  border-radius:var(--radius-sm);padding:5px 12px;color:#fff;cursor:pointer;
+  font-size:11px;font-family:var(--font-body);font-weight:600;transition:all 0.2s;
+  text-decoration:none;
+}
+.hdr-btn:hover{background:rgba(255,255,255,0.3)}
+
+/* PROGRESS */
+.progress-section{padding:10px 20px;flex-shrink:0;background:var(--bg-card);border-bottom:1px solid var(--border-light)}
+.progress-bar-outer{background:#d1fae5;border-radius:20px;height:32px;position:relative;overflow:hidden;border:1px solid #86efac}
+.progress-bar-fill{
+  height:100%;border-radius:20px;
+  background:linear-gradient(90deg,#15803d,#16a34a,#22c55e);
+  transition:width 0.8s cubic-bezier(0.22,1,0.36,1);position:relative;
+}
+.progress-bar-fill::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,0.3),transparent);
+  animation:shimmer 2.5s infinite;
+}
+@keyframes shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.progress-text{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-weight:700;font-size:15px;color:#14532d;
+  text-shadow:0 0 8px rgba(255,255,255,0.8);z-index:1;
+}
+
+/* MAIN AREA */
+.main-area{display:flex;flex:1;overflow:hidden}
+
+/* CENTER: Scan & result */
+.center-panel{
+  width:380px;flex-shrink:0;display:flex;flex-direction:column;
+  padding:16px 20px;background:var(--bg-card);border-right:1px solid var(--border-light);
+  gap:12px;overflow-y:auto;
+}
+
+/* Result display */
+.result-display{
+  border-radius:var(--radius);padding:24px;text-align:center;
+  font-size:80px;font-weight:900;letter-spacing:4px;
+  min-height:140px;display:flex;align-items:center;justify-content:center;
+  transition:all 0.3s;flex-shrink:0;
+}
+.result-display.idle{background:var(--empty);color:var(--text3);font-size:24px;font-weight:700}
+.result-display.ok{background:var(--done-bg);color:var(--done);border:3px solid var(--done-border);animation:flashOk 0.5s}
+.result-display.ng{background:var(--ng-bg);color:var(--ng);border:3px solid var(--ng-border);animation:flashNg 0.5s}
+@keyframes flashOk{0%,50%{background:#bbf7d0}100%{background:var(--done-bg)}}
+@keyframes flashNg{0%,30%,60%{background:#fecaca}15%,45%{background:var(--ng-bg)}100%{background:var(--ng-bg)}}
+
+/* Complete overlay */
+.complete-display{
+  position:fixed;inset:0;background:rgba(22,163,74,0.95);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;
+  z-index:100;color:#fff;animation:fadeIn 0.5s;
+}
+.complete-display .big{font-size:120px;font-weight:900;letter-spacing:8px}
+.complete-display .sub{font-size:24px;margin-top:12px;font-weight:700}
+.complete-close{
+  margin-top:24px;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.5);
+  border-radius:var(--radius);padding:12px 32px;color:#fff;cursor:pointer;
+  font-size:16px;font-weight:700;font-family:var(--font-body);
+}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+/* Input fields */
+.scan-section{flex-shrink:0}
+.scan-label{font-size:14px;font-weight:700;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.scan-input{
+  width:100%;padding:14px 16px;border:2px solid var(--border);border-radius:var(--radius-sm);
+  font-family:var(--font-mono);font-size:20px;font-weight:700;color:var(--text);
+  background:var(--bg);transition:all 0.2s;
+}
+.scan-input:focus{outline:none;border-color:var(--blue-400);box-shadow:0 0 0 3px var(--blue-100);background:#fff}
+.scan-input.filled{border-color:var(--done);background:var(--done-bg);color:var(--done)}
+.scan-input.active-input{border-color:var(--blue-500);background:#fff;box-shadow:0 0 0 4px var(--blue-100)}
+.scan-hint{font-size:10px;color:var(--text3);margin-top:3px}
+
+/* Last match info */
+.last-match{
+  background:var(--blue-50);border:1px solid var(--blue-200);border-radius:var(--radius-sm);
+  padding:10px;font-size:12px;color:var(--text2);flex-shrink:0;
+}
+.last-match .lm-title{font-size:10px;color:var(--text3);font-weight:600;margin-bottom:4px}
+.last-match .lm-val{font-family:var(--font-mono);font-size:14px;font-weight:700;color:var(--blue-800)}
+
+/* LISTS */
+.lists-area{flex:1;display:flex;overflow:hidden}
+.list-panel{
+  flex:1;display:flex;flex-direction:column;overflow:hidden;
+  padding:12px;
+}
+.list-panel:first-child{border-right:1px solid var(--border-light)}
+.list-header{
+  font-size:14px;font-weight:800;margin-bottom:8px;display:flex;align-items:center;gap:8px;
+  flex-shrink:0;
+}
+.list-header .count{
+  font-family:var(--font-mono);font-size:12px;font-weight:600;
+  padding:2px 8px;border-radius:10px;
+}
+.before-header{color:var(--pending)}
+.before-header .count{background:var(--pending-bg);color:var(--pending)}
+.after-header{color:var(--done)}
+.after-header .count{background:var(--done-bg);color:var(--done)}
+.list-scroll{flex:1;overflow-y:auto}
+.list-table{width:100%;border-collapse:collapse;font-size:11px}
+.list-table th{
+  position:sticky;top:0;background:var(--bg);
+  padding:4px 6px;text-align:left;font-weight:700;color:var(--text3);
+  border-bottom:1px solid var(--border);font-size:10px;
+}
+.list-table td{
+  padding:4px 6px;border-bottom:1px solid var(--border-light);
+  font-family:var(--font-mono);font-size:11px;font-weight:500;
+}
+.list-table tr.just-matched{animation:highlightRow 2s}
+@keyframes highlightRow{0%{background:#bbf7d0}100%{background:transparent}}
+.time-col{color:var(--text3);font-size:9px}
+
+/* SETUP */
+.setup-screen{
+  position:fixed;inset:0;background:linear-gradient(135deg,var(--blue-50),#fff,var(--blue-100));
+  display:flex;align-items:center;justify-content:center;z-index:1000;
+}
+.setup-card{
+  background:var(--bg-card);border-radius:20px;padding:40px;text-align:center;
+  box-shadow:var(--shadow-lg);border:1px solid var(--border);max-width:520px;width:92%;
+}
+.setup-card h2{font-size:22px;font-weight:900;color:var(--blue-700);margin-bottom:8px}
+.setup-card p{color:var(--text2);font-size:13px;margin-bottom:20px;line-height:1.6}
+.setup-card input{
+  width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+  padding:12px;color:var(--text);font-size:13px;font-family:var(--font-mono);margin-bottom:10px;
+}
+.setup-btn{
+  background:linear-gradient(135deg,var(--blue-600),var(--blue-500));
+  color:#fff;border:none;border-radius:var(--radius);padding:12px 32px;
+  font-size:15px;font-weight:700;cursor:pointer;font-family:var(--font-body);
+  box-shadow:0 4px 14px rgba(37,99,235,0.35);transition:all 0.2s;
+}
+.setup-btn:hover{transform:translateY(-2px)}
+.setup-result{margin-top:12px;font-size:12px;min-height:20px}
+
+/* Loading */
+.loading-overlay{
+  position:fixed;inset:0;background:rgba(255,255,255,0.9);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;z-index:999;gap:12px;
+}
+.spinner{width:40px;height:40px;border:4px solid var(--blue-100);border-top-color:var(--blue-500);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:14px;color:var(--text2);font-weight:600}
+
+/* No data */
+.nodata{
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  height:100%;gap:12px;color:var(--text2);padding:40px;text-align:center;
+}
+.nodata-icon{font-size:48px}
+.nodata-text{font-size:16px;font-weight:700}
+.nodata-sub{font-size:12px;color:var(--text3);line-height:1.6}
+
+/* Poll indicator */
+.poll-ind{
+  position:fixed;bottom:6px;right:10px;font-size:9px;color:var(--text3);
+  font-family:var(--font-mono);background:rgba(255,255,255,0.9);padding:2px 8px;
+  border-radius:10px;border:1px solid var(--border-light);z-index:50;
+}
+.pdot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:3px;vertical-align:middle}
+.pdot.on{background:var(--done);animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+
+/* Mobile */
+@media(max-width:900px){
+  .main-area{flex-direction:column}
+  .center-panel{width:100%;border-right:none;border-bottom:1px solid var(--border-light);flex-shrink:0;max-height:45vh;padding:12px}
+  .result-display{font-size:56px;min-height:90px;padding:16px}
+  .scan-input{font-size:16px;padding:10px 12px}
+  .lists-area{flex:1}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ============================================================
+// SOUND GENERATION (Web Audio API)
+// ============================================================
+const AudioCtx=window.AudioContext||window.webkitAudioContext;
+let audioCtx=null;
+function getAudio(){if(!audioCtx)audioCtx=new AudioCtx();return audioCtx}
+function playOk(){
+  try{
+    const ctx=getAudio();
+    // Ding-dong (two-tone chime)
+    [523.25,659.25].forEach((freq,i)=>{
+      const osc=ctx.createOscillator();const gain=ctx.createGain();
+      osc.type='sine';osc.frequency.value=freq;
+      gain.gain.setValueAtTime(0.3,ctx.currentTime+i*0.15);
+      gain.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+i*0.15+0.5);
+      osc.connect(gain);gain.connect(ctx.destination);
+      osc.start(ctx.currentTime+i*0.15);osc.stop(ctx.currentTime+i*0.15+0.5);
+    });
+  }catch(e){}
+}
+function playNg(){
+  try{
+    const ctx=getAudio();
+    // Buzzer (harsh tone)
+    for(let i=0;i<3;i++){
+      const osc=ctx.createOscillator();const gain=ctx.createGain();
+      osc.type='square';osc.frequency.value=220;
+      gain.gain.setValueAtTime(0.25,ctx.currentTime+i*0.15);
+      gain.gain.exponentialRampToValueAtTime(0.01,ctx.currentTime+i*0.15+0.12);
+      osc.connect(gain);gain.connect(ctx.destination);
+      osc.start(ctx.currentTime+i*0.15);osc.stop(ctx.currentTime+i*0.15+0.12);
+    }
+  }catch(e){}
+}
+
+// ============================================================
+// CSV PARSING
+// ============================================================
+function parseCSVFromGAS(rows){
+  const items=[];
+  rows.forEach(row=>{
+    const line=String(row[0]||'').replace(/"/g,'').trim();
+    if(!line)return;
+    const hi=line.indexOf('#');
+    if(hi<0)return;
+    const key=line.substring(0,hi).trim(); // #より前 = 照合キー
+    const after=line.substring(hi+1);
+    const ap=after.split(',');
+    const date=ap[0]||'';
+    const ci=(ap[1]||'').trim();
+    let cart='',slot=-1;
+    if(ci.includes('-')){const s=ci.split('-');cart=s[0];slot=parseInt(s[1])}
+    else{cart=ci}
+    items.push({key,full:line,date,cart,slot});
+  });
+  return items.length>0?items:null;
+}
+
+// ============================================================
+// STATE
+// ============================================================
+const S={
+  phase:'init', // init|setup|loading|nodata|app
+  gasUrl:'',
+  items:null, // [{key,full,date,cart,slot}]
+  verified:new Set(), // set of indices that have been verified
+  verifiedList:[], // [{index,key,time}] ordered by verification time (newest first)
+  resultState:'idle', // idle|ok|ng
+  resultMsg:'',
+  shishoValue:'', // 指示書読取値
+  labelValue:'', // ラベル読取値
+  focusField:'shisho', // shisho|label
+  lastMatchKey:null,
+  lastMatchTime:null,
+  showComplete:false,
+  gasError:null,
+};
+try{S.gasUrl=localStorage.getItem('subako_gas_url')||''}catch(e){}
+
+// ============================================================
+// GAS
+// ============================================================
+async function gasFetch(type){
+  if(!S.gasUrl)return null;
+  const sep=S.gasUrl.includes('?')?'&':'?';
+  const r=await fetch(S.gasUrl+sep+'type='+type+'&t='+Date.now(),{redirect:'follow'});
+  if(!r.ok)throw new Error('HTTP '+r.status);
+  return r.json();
+}
+async function gasPost(body){
+  if(!S.gasUrl)return;
+  try{
+    await fetch(S.gasUrl,{method:'POST',redirect:'follow',headers:{'Content-Type':'text/plain'},body:JSON.stringify(body)});
+  }catch(e){console.warn('gasPost error:',e)}
+}
+
+async function loadData(){
+  try{
+    const data=await gasFetch('csv');
+    if(data&&data.status==='ok'&&data.data&&data.data.length>0){
+      let rows=data.data;
+      if(rows[0]&&String(rows[0][0]).includes('ラベル'))rows=rows.slice(1);
+      const items=parseCSVFromGAS(rows);
+      if(items){S.items=items;S.phase='app'}
+      else S.phase='nodata';
+    }else{
+      S.phase='nodata';
+    }
+    // Also load existing label verifications
+    try{
+      const vdata=await gasFetch('labelverify');
+      if(Array.isArray(vdata)&&vdata.length>0&&S.items){
+        vdata.forEach(row=>{
+          const key=String(Array.isArray(row)?row[1]||'':row.key||'').trim();
+          if(!key)return;
+          const idx=S.items.findIndex(it=>it.key===key&&!S.verified.has(S.items.indexOf(it)));
+          const realIdx=S.items.findIndex((it,i)=>it.key===key&&!S.verified.has(i));
+          if(realIdx>=0){
+            S.verified.add(realIdx);
+            S.verifiedList.unshift({index:realIdx,key,time:String(Array.isArray(row)?row[0]||'':row.time||'')});
+          }
+        });
+      }
+    }catch(e){/* labelverify might not exist yet */}
+    S.gasError=null;
+  }catch(e){
+    S.gasError=e.message;
+    if(!S.items)S.phase='nodata';
+  }
+  render();
+}
+
+// ============================================================
+// VERIFICATION LOGIC
+// ============================================================
+function doVerify(){
+  const shisho=S.shishoValue.trim();
+  const label=S.labelValue.trim();
+  if(!shisho||!label)return;
+
+  // Extract key (everything before #, or the whole value if no #)
+  const shishoKey=shisho.includes('#')?shisho.substring(0,shisho.indexOf('#')):shisho;
+  const labelKey=label.includes('#')?label.substring(0,label.indexOf('#')):label;
+
+  // 1. Check if shisho and label match
+  if(shishoKey!==labelKey){
+    S.resultState='ng';
+    S.resultMsg='指示書とラベルが不一致';
+    playNg();
+    resetInputs();
+    render();return;
+  }
+
+  // 2. Check if key exists in CSV list
+  const matchIdx=S.items.findIndex((it,i)=>it.key===shishoKey&&!S.verified.has(i));
+  if(matchIdx<0){
+    // Check if it exists but already verified
+    const alreadyDone=S.items.findIndex(it=>it.key===shishoKey);
+    if(alreadyDone>=0&&S.verified.has(alreadyDone)){
+      S.resultState='ng';
+      S.resultMsg='照合済みです';
+    }else{
+      S.resultState='ng';
+      S.resultMsg='リストに存在しません';
+    }
+    playNg();
+    resetInputs();
+    render();return;
+  }
+
+  // 3. OK!
+  S.verified.add(matchIdx);
+  const now=new Date().toLocaleString('ja-JP');
+  S.verifiedList.unshift({index:matchIdx,key:shishoKey,time:now});
+  S.resultState='ok';
+  S.resultMsg='';
+  S.lastMatchKey=shishoKey;
+  S.lastMatchTime=now;
+  playOk();
+
+  // Record to GAS
+  gasPost({
+    action:'labelVerify',
+    time:now,
+    key:shishoKey,
+    shisho:shisho,
+    label:label,
+    result:'OK'
+  });
+
+  // Check complete
+  if(S.verified.size>=S.items.length){
+    S.showComplete=true;
+  }
+
+  resetInputs();
+  render();
+}
+
+function resetInputs(){
+  S.shishoValue='';
+  S.labelValue='';
+  S.focusField='shisho';
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function render(){
+  const app=document.getElementById('app');
+
+  if(S.phase==='init'||S.phase==='setup'){app.innerHTML=setupHTML();return}
+  if(S.phase==='loading'){app.innerHTML='<div class="loading-overlay"><div class="spinner"></div><div class="loading-text">データを読み込み中...</div></div>';return}
+  if(S.phase==='nodata'){
+    app.innerHTML='<div class="header"><span class="header-title">ラベル照合</span><div style="flex:1"></div><a class="hdr-btn" href="index.html">🏠 TOP</a></div>'+
+      '<div class="nodata"><div class="nodata-icon">🏷️</div><div class="nodata-text">CSVデータがありません</div>'+
+      '<div class="nodata-sub">TOPページからCSVをアップロードしてください</div>'+
+      '<a class="setup-btn" href="index.html" style="margin-top:12px;text-decoration:none;display:inline-block">TOPページへ</a></div>';
+    return;
+  }
+
+  const total=S.items.length;
+  const done=S.verified.size;
+  const pct=total>0?(done/total*100):0;
+
+  app.innerHTML=
+    headerHTML(total,done)+
+    progressHTML(pct,done,total)+
+    '<div class="main-area">'+
+      centerHTML()+
+      '<div class="lists-area">'+beforeListHTML()+afterListHTML()+'</div>'+
+    '</div>'+
+    (S.showComplete?completeHTML():'')+
+    '<div class="poll-ind"><span class="pdot on"></span>接続中</div>';
+
+  // Focus management
+  setTimeout(()=>{
+    const el=document.getElementById(S.focusField==='label'?'label-input':'shisho-input');
+    if(el)el.focus();
+  },50);
+}
+
+function setupHTML(){
+  return'<div class="setup-screen"><div class="setup-card">'+
+    '<h2>ラベル照合アプリ</h2>'+
+    '<p>GAS URLを設定して接続してください</p>'+
+    '<input type="text" id="setup-url" placeholder="https://script.google.com/macros/s/.../exec" value="'+(S.gasUrl||'')+'">'+
+    '<button class="setup-btn" onclick="W.connect()">接続</button>'+
+    '<div class="setup-result" id="setup-result"></div>'+
+    '</div></div>';
+}
+
+function headerHTML(total,done){
+  return'<div class="header"><span class="header-title">ラベル照合</span>'+
+    '<div class="header-chips">'+
+    '<span class="chip hl">製品 <span class="cv">'+done+'/'+total+'</span></span></div>'+
+    '<a class="hdr-btn" href="index.html">🏠 TOP</a></div>';
+}
+
+function progressHTML(pct,done,total){
+  return'<div class="progress-section"><div class="progress-bar-outer">'+
+    '<div class="progress-bar-fill" style="width:'+pct+'%"></div>'+
+    '<div class="progress-text">'+pct.toFixed(1)+'%　'+done+' / '+total+' 照合済み</div></div></div>';
+}
+
+function centerHTML(){
+  let resultClass='idle',resultContent='スキャン待機中';
+  if(S.resultState==='ok'){resultClass='ok';resultContent='OK'}
+  if(S.resultState==='ng'){resultClass='ng';resultContent='NG'}
+
+  let msgHtml='';
+  if(S.resultState==='ng'&&S.resultMsg){
+    msgHtml='<div style="color:var(--ng);font-size:16px;font-weight:700;text-align:center;margin-top:-4px">'+S.resultMsg+'</div>';
+  }
+
+  let lastHtml='';
+  if(S.lastMatchKey){
+    lastHtml='<div class="last-match"><div class="lm-title">最新照合</div><div class="lm-val">'+S.lastMatchKey+'</div><div style="font-size:10px;color:var(--text3);margin-top:2px">'+S.lastMatchTime+'</div></div>';
+  }
+
+  return'<div class="center-panel">'+
+    '<div class="result-display '+resultClass+'" id="result-display">'+resultContent+'</div>'+
+    msgHtml+
+    '<div class="scan-section">'+
+    '<div class="scan-label">📋 指示書読取</div>'+
+    '<input class="scan-input'+(S.shishoValue?' filled':'')+(S.focusField==='shisho'?' active-input':'')+'" id="shisho-input" placeholder="指示書のバーコードをスキャン" value="'+escHtml(S.shishoValue)+'" readonly onfocus="W.setFocus(\'shisho\')">'+
+    '</div>'+
+    '<div class="scan-section">'+
+    '<div class="scan-label">🏷️ ラベル読取</div>'+
+    '<input class="scan-input'+(S.labelValue?' filled':'')+(S.focusField==='label'?' active-input':'')+'" id="label-input" placeholder="ラベルのバーコードをスキャン" value="'+escHtml(S.labelValue)+'" readonly onfocus="W.setFocus(\'label\')">'+
+    '<div class="scan-hint">指示書 → ラベル の順にスキャンしてください</div>'+
+    '</div>'+
+    lastHtml+
+    '</div>';
+}
+
+function beforeListHTML(){
+  const pending=S.items.filter((_,i)=>!S.verified.has(i));
+  return'<div class="list-panel"><div class="list-header before-header">照合前 <span class="count">'+pending.length+'</span></div>'+
+    '<div class="list-scroll"><table class="list-table"><thead><tr><th>品番</th><th>台車</th></tr></thead><tbody>'+
+    pending.map(it=>'<tr><td>'+escHtml(it.key)+'</td><td>'+escHtml(it.cart+(it.slot>0?'-'+it.slot:''))+'</td></tr>').join('')+
+    '</tbody></table></div></div>';
+}
+
+function afterListHTML(){
+  return'<div class="list-panel"><div class="list-header after-header">照合済み <span class="count">'+S.verifiedList.length+'</span></div>'+
+    '<div class="list-scroll"><table class="list-table"><thead><tr><th>品番</th><th>台車</th><th>時刻</th></tr></thead><tbody>'+
+    S.verifiedList.map((v,i)=>{
+      const it=S.items[v.index];
+      const cls=i===0&&S.resultState==='ok'?'just-matched':'';
+      return'<tr class="'+cls+'"><td>'+escHtml(v.key)+'</td><td>'+escHtml(it.cart+(it.slot>0?'-'+it.slot:''))+'</td><td class="time-col">'+escHtml(v.time)+'</td></tr>';
+    }).join('')+
+    '</tbody></table></div></div>';
+}
+
+function completeHTML(){
+  return'<div class="complete-display" onclick="W.closeComplete()">'+
+    '<div class="big">完了</div>'+
+    '<div class="sub">全 '+S.items.length+' 件の照合が完了しました</div>'+
+    '<button class="complete-close">閉じる</button></div>';
+}
+
+function escHtml(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
+// ============================================================
+// KEYBOARD INPUT (USB Barcode Reader)
+// ============================================================
+let inputBuffer='';
+let inputTimer=null;
+
+document.addEventListener('keydown',function(e){
+  // Ignore if setup or modal
+  if(S.phase!=='app')return;
+  // Ignore modifier keys
+  if(e.ctrlKey||e.altKey||e.metaKey)return;
+
+  if(e.key==='Enter'){
+    e.preventDefault();
+    // Process buffered input
+    const val=inputBuffer.trim();
+    inputBuffer='';
+    if(inputTimer){clearTimeout(inputTimer);inputTimer=null}
+    if(!val)return;
+
+    if(S.focusField==='shisho'){
+      S.shishoValue=val;
+      S.focusField='label';
+      S.resultState='idle';
+      render();
+    }else{
+      S.labelValue=val;
+      doVerify();
+    }
+  }else if(e.key==='Escape'){
+    e.preventDefault();
+    resetInputs();
+    S.resultState='idle';S.resultMsg='';
+    render();
+  }else if(e.key==='Backspace'){
+    inputBuffer=inputBuffer.slice(0,-1);
+  }else if(e.key.length===1){
+    inputBuffer+=e.key;
+    // Auto-clear after 100ms idle (barcode readers send fast)
+    if(inputTimer)clearTimeout(inputTimer);
+    inputTimer=setTimeout(()=>{inputBuffer='';inputTimer=null},500);
+  }
+});
+
+// ============================================================
+// HANDLERS
+// ============================================================
+const W={
+  async connect(){
+    const el=document.getElementById('setup-result');
+    const url=(document.getElementById('setup-url')||{}).value||'';
+    if(!url.trim()){el.innerHTML='<span style="color:#ef4444">URLを入力してください</span>';return}
+    S.gasUrl=url.trim();
+    try{localStorage.setItem('subako_gas_url',S.gasUrl)}catch(e){}
+    el.innerHTML='<span style="color:var(--blue-500)">接続中...</span>';
+    S.phase='loading';render();
+    await loadData();
+  },
+  setFocus(f){S.focusField=f;render()},
+  closeComplete(){S.showComplete=false;render()},
+};
+window.W=W;
+
+// ============================================================
+// INIT
+// ============================================================
+(async function(){
+  if(S.gasUrl){
+    S.phase='loading';render();
+    await loadData();
+  }else{
+    S.phase='setup';render();
+  }
+})();
+</script>
+</body>
+</html>
