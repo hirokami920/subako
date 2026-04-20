@@ -14,7 +14,7 @@
   --bg:#f0f5fa;--bg-card:#ffffff;
   --text:#1a2b3c;--text2:#5a7088;--text3:#94a8bc;
   --border:#d4e2f0;--border-light:#e8f0f8;
-  --done:#16a34a;--done-bg:#dcfce7;--done-border:#86efac;
+  --done:#16a34a;--done-bg:#dcfce7;
   --ng:#dc2626;
   --shadow:0 1px 3px rgba(30,64,120,0.08);
   --shadow-md:0 4px 16px rgba(30,64,120,0.1);
@@ -33,7 +33,7 @@ body{
 }
 .page{
   min-height:100vh;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;padding:24px;gap:0;
+  justify-content:center;padding:24px;
 }
 
 /* Header */
@@ -54,9 +54,11 @@ body{
   animation:fadeUp 0.6s 0.1s cubic-bezier(0.22,1,0.36,1) both;
 }
 .csv-card{
-  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
-  padding:20px 24px;box-shadow:var(--shadow);display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  background:var(--bg-card);border:2px solid var(--border);border-radius:var(--radius);
+  padding:20px 24px;box-shadow:var(--shadow);transition:all 0.3s;
 }
+.csv-card.dragover{border-color:var(--blue-500);background:var(--blue-50)}
+.csv-top{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 .csv-card-left{display:flex;align-items:center;gap:12px;flex:1;min-width:200px}
 .csv-icon{
   width:44px;height:44px;border-radius:12px;background:var(--blue-50);
@@ -74,9 +76,6 @@ body{
   box-shadow:0 2px 8px rgba(37,99,235,0.3);transition:all 0.2s;
 }
 .csv-upload-btn:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(37,99,235,0.4)}
-.csv-status{font-size:11px;color:var(--text3);min-width:100px}
-.csv-status.ok{color:var(--done);font-weight:700}
-.csv-status.err{color:var(--ng);font-weight:700}
 .gas-settings-btn{
   background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
   padding:8px 14px;font-size:11px;color:var(--text2);cursor:pointer;
@@ -84,6 +83,16 @@ body{
 }
 .gas-settings-btn:hover{border-color:var(--blue-400);color:var(--blue-600)}
 input[type=file]{display:none}
+.csv-drop-hint{
+  margin-top:10px;text-align:center;font-size:12px;color:var(--text3);
+  padding:10px;border:1px dashed var(--border);border-radius:var(--radius-sm);
+  transition:all 0.3s;
+}
+.csv-card.dragover .csv-drop-hint{border-color:var(--blue-400);color:var(--blue-600);background:var(--blue-50)}
+.csv-status{margin-top:10px;font-size:12px;min-height:18px;text-align:center}
+.csv-status.ok{color:var(--done);font-weight:700}
+.csv-status.err{color:var(--ng);font-weight:700}
+.csv-status.info{color:var(--blue-600)}
 
 /* Cards */
 .cards{
@@ -110,9 +119,7 @@ input[type=file]{display:none}
 .card:nth-child(1){animation:fadeUp 0.6s 0.2s cubic-bezier(0.22,1,0.36,1) both}
 .card:nth-child(2){animation:fadeUp 0.6s 0.35s cubic-bezier(0.22,1,0.36,1) both}
 .card:nth-child(3){animation:fadeUp 0.6s 0.5s cubic-bezier(0.22,1,0.36,1) both}
-
 @keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
-
 .card-icon{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin-bottom:16px}
 .card:nth-child(1) .card-icon{background:#fef3c7}
 .card:nth-child(2) .card-icon{background:var(--blue-100)}
@@ -147,6 +154,7 @@ input[type=file]{display:none}
 .mbtn{padding:8px 20px;border-radius:var(--radius-sm);border:none;cursor:pointer;font-family:var(--font-body);font-weight:700;font-size:13px}
 .mbtn-save{background:var(--blue-600);color:#fff}
 .mbtn-cancel{background:var(--bg);color:var(--text2);border:1px solid var(--border) !important}
+.modal-test{margin-top:8px;font-size:11px;min-height:16px}
 
 /* Footer */
 .portal-footer{
@@ -159,7 +167,7 @@ input[type=file]{display:none}
   .portal-header{margin-bottom:20px}
   .portal-title{font-size:24px}
   .portal-sub{font-size:13px}
-  .csv-card{padding:14px 16px;gap:10px}
+  .csv-card{padding:14px 16px}
   .csv-card-left{min-width:auto}
   .csv-info h3{font-size:13px}
   .cards{gap:16px}
@@ -171,7 +179,7 @@ input[type=file]{display:none}
 </style>
 </head>
 <body>
-<div class="page" id="page">
+<div class="page">
 
   <div class="portal-header">
     <div class="portal-icon">
@@ -186,30 +194,34 @@ input[type=file]{display:none}
 
   <!-- CSV Upload Section -->
   <div class="csv-section">
-    <div class="csv-card">
-      <div class="csv-card-left">
-        <div class="csv-icon">
-          <svg viewBox="0 0 22 22" fill="none"><path d="M6 18h10M11 4v10m-3-3l3 3 3-3" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div class="csv-card" id="csv-card">
+      <div class="csv-top">
+        <div class="csv-card-left">
+          <div class="csv-icon">
+            <svg viewBox="0 0 22 22" fill="none"><path d="M6 18h10M11 4v10m-3-3l3 3 3-3" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="csv-info">
+            <h3>📂 本日のCSV取込</h3>
+            <p>朝一でCSVファイルを取り込んでから各アプリをご利用ください</p>
+          </div>
         </div>
-        <div class="csv-info">
-          <h3>📂 本日のCSV取込</h3>
-          <p>朝一でCSVファイルを取り込んでから各アプリをご利用ください</p>
+        <div class="csv-actions">
+          <label>
+            <input type="file" id="csv-file" accept=".csv">
+            <span class="csv-upload-btn">CSVを取り込む</span>
+          </label>
+          <button class="gas-settings-btn" onclick="W.showGas()">⚙ GAS設定</button>
         </div>
       </div>
-      <div class="csv-actions">
-        <label>
-          <input type="file" id="csv-file" accept=".csv">
-          <span class="csv-upload-btn">CSVを取り込む</span>
-        </label>
-        <span class="csv-status" id="csv-status"></span>
-        <button class="gas-settings-btn" onclick="W.showGas()">⚙ GAS設定</button>
+      <div class="csv-drop-hint" id="csv-drop-hint">
+        ここにCSVファイルをドラッグ＆ドロップでも取り込めます
       </div>
+      <div class="csv-status" id="csv-status"></div>
     </div>
   </div>
 
   <!-- App Cards -->
   <div class="cards">
-
     <a class="card" href="label.html">
       <div class="card-icon">
         <svg viewBox="0 0 28 28" fill="none">
@@ -224,16 +236,9 @@ input[type=file]{display:none}
         <span class="feature-tag">✅ 3点照合</span>
         <span class="feature-tag">🖥 PC対応</span>
       </div>
-      <div class="card-desc">
-        指示書とラベルのバーコードを読み取り、<br>
-        CSVリストと3点照合して記録します。
-      </div>
-      <div class="card-action">
-        アプリを開く
-        <svg class="card-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
+      <div class="card-desc">指示書とラベルのバーコードを読み取り、<br>CSVリストと3点照合して記録します。</div>
+      <div class="card-action">アプリを開く <svg class="card-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
     </a>
-
     <a class="card" href="scan.html">
       <div class="card-icon">
         <svg viewBox="0 0 28 28" fill="none">
@@ -250,23 +255,15 @@ input[type=file]{display:none}
         <span class="feature-tag">✅ リアルタイム照合</span>
         <span class="feature-tag">📱 スマホ対応</span>
       </div>
-      <div class="card-desc">
-        スマホのカメラでQRコードを読み取り、<br>
-        巣箱の差込口と製品を照合・記録します。
-      </div>
-      <div class="card-action">
-        アプリを開く
-        <svg class="card-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
+      <div class="card-desc">スマホのカメラでQRコードを読み取り、<br>巣箱の差込口と製品を照合・記録します。</div>
+      <div class="card-action">アプリを開く <svg class="card-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
     </a>
-
     <a class="card" href="dashboard.html">
       <div class="card-icon">
         <svg viewBox="0 0 28 28" fill="none">
           <rect x="3" y="14" width="5" height="10" rx="1" fill="#16a34a" opacity="0.3"/>
           <rect x="11" y="8" width="5" height="16" rx="1" fill="#16a34a" opacity="0.5"/>
           <rect x="19" y="4" width="5" height="20" rx="1" fill="#16a34a"/>
-          <path d="M3 4h22" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
         </svg>
       </div>
       <div class="card-title">進捗ダッシュボード</div>
@@ -275,116 +272,127 @@ input[type=file]{display:none}
         <span class="feature-tag">🔄 自動追従</span>
         <span class="feature-tag">🖥 モニター表示</span>
       </div>
-      <div class="card-desc">
-        巣箱の積み込み進捗をリアルタイムで可視化。<br>
-        出荷場モニターやスマホで確認できます。
-      </div>
-      <div class="card-action">
-        ダッシュボードを開く
-        <svg class="card-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </div>
+      <div class="card-desc">巣箱の積み込み進捗をリアルタイムで可視化。<br>出荷場モニターやスマホで確認できます。</div>
+      <div class="card-action">ダッシュボードを開く <svg class="card-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
     </a>
-
   </div>
 
-  <div class="portal-footer">
-    巣箱照合システム — ラベル照合 &amp; QR照合 &amp; 進捗管理
-  </div>
-
+  <div class="portal-footer">巣箱照合システム — ラベル照合 &amp; QR照合 &amp; 進捗管理</div>
 </div>
 
-<!-- GAS Settings Modal -->
-<div class="modal-bg" id="gas-modal" style="display:none" onclick="W.closeGas(event)">
-  <div class="modal-box" onclick="event.stopPropagation()">
+<!-- GAS Modal -->
+<div class="modal-bg" id="gas-modal" style="display:none" onclick="if(event.target===this)this.style.display='none'">
+  <div class="modal-box">
     <h3>⚙ GAS連携設定</h3>
     <p>GAS Web App URLを設定します。全アプリで共通のURLを使用します。</p>
     <input type="text" id="gas-url-input" placeholder="https://script.google.com/macros/s/.../exec">
     <div class="modal-btns">
-      <button class="mbtn mbtn-cancel" onclick="W.closeGasForce()">キャンセル</button>
+      <button class="mbtn mbtn-cancel" onclick="document.getElementById('gas-modal').style.display='none'">キャンセル</button>
       <button class="mbtn mbtn-save" onclick="W.saveGas()">保存</button>
     </div>
+    <div class="modal-test" id="gas-test"></div>
   </div>
 </div>
 
 <script>
-// ===== STATE =====
 let gasUrl='';
 try{gasUrl=localStorage.getItem('subako_gas_url')||''}catch(e){}
 
-// ===== CSV UPLOAD =====
+const statusEl=document.getElementById('csv-status');
+const csvCard=document.getElementById('csv-card');
+
+// ===== CSV Upload via file picker =====
 document.getElementById('csv-file').addEventListener('change',function(e){
-  const file=e.target.files[0];
-  if(!file)return;
-  const statusEl=document.getElementById('csv-status');
-  statusEl.className='csv-status';
-  statusEl.textContent='読み込み中...';
+  const f=e.target.files[0];
+  if(f)uploadCSV(f);
+});
+
+// ===== Drag & Drop =====
+['dragenter','dragover'].forEach(ev=>{
+  csvCard.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();csvCard.classList.add('dragover')});
+});
+['dragleave','drop'].forEach(ev=>{
+  csvCard.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();csvCard.classList.remove('dragover')});
+});
+csvCard.addEventListener('drop',e=>{
+  const files=e.dataTransfer.files;
+  if(files.length>0)uploadCSV(files[0]);
+});
+
+// Also support full-page drag
+document.addEventListener('dragover',e=>e.preventDefault());
+document.addEventListener('drop',e=>{
+  e.preventDefault();
+  const files=e.dataTransfer.files;
+  if(files.length>0&&files[0].name.endsWith('.csv'))uploadCSV(files[0]);
+});
+
+// ===== Upload Logic =====
+function uploadCSV(file){
+  if(!file.name.endsWith('.csv')){
+    showStatus('err','CSVファイルを選択してください');
+    return;
+  }
+  if(!gasUrl){
+    showStatus('err','GAS URLが未設定です。⚙ GAS設定から設定してください');
+    return;
+  }
+  showStatus('info','読み込み中...');
 
   const reader=new FileReader();
   reader.onload=async function(ev){
     const text=ev.target.result;
     const lines=text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
     if(lines.length<2){
-      statusEl.className='csv-status err';
-      statusEl.textContent='CSVデータが空です';
+      showStatus('err','CSVデータが空です');
       return;
     }
-
-    if(!gasUrl){
-      statusEl.className='csv-status err';
-      statusEl.textContent='GAS URLが未設定です。⚙ GAS設定から設定してください';
-      return;
-    }
-
-    statusEl.textContent='アップロード中... ('+lines.length+'行)';
+    showStatus('info','アップロード中... ('+lines.length+'行)');
     try{
       const rows=lines.map(l=>[l]);
       const r=await fetch(gasUrl,{
-        method:'POST',redirect:'follow',
-        headers:{'Content-Type':'text/plain'},
+        method:'POST',
+        redirect:'follow',
         body:JSON.stringify({action:'uploadCSV',rows:rows})
       });
       const result=await r.json();
       if(result.status==='ok'){
-        statusEl.className='csv-status ok';
-        statusEl.textContent='✓ 取込完了！ '+(result.count||lines.length)+'行を保存しました';
+        showStatus('ok','✓ 取込完了！ '+(result.count||lines.length)+'行を保存しました');
       }else{
-        statusEl.className='csv-status err';
-        statusEl.textContent='エラー: '+(result.message||'不明');
+        showStatus('err','エラー: '+(result.message||'不明'));
       }
     }catch(err){
-      statusEl.className='csv-status err';
-      statusEl.textContent='アップロード失敗: '+err.message;
+      showStatus('err','アップロード失敗: '+err.message+'　GASコードの更新とデプロイを確認してください');
     }
   };
   reader.readAsText(file,'Shift_JIS');
-});
+}
 
-// ===== GAS SETTINGS =====
+function showStatus(type,msg){
+  statusEl.className='csv-status '+type;
+  statusEl.textContent=msg;
+}
+
+// ===== GAS Settings =====
 const W={
   showGas(){
     document.getElementById('gas-modal').style.display='flex';
     document.getElementById('gas-url-input').value=gasUrl;
+    document.getElementById('gas-test').textContent='';
   },
-  closeGas(e){
-    if(e.target.id==='gas-modal')document.getElementById('gas-modal').style.display='none';
-  },
-  closeGasForce(){document.getElementById('gas-modal').style.display='none'},
   saveGas(){
     const url=document.getElementById('gas-url-input').value.trim();
     gasUrl=url;
     try{localStorage.setItem('subako_gas_url',url)}catch(e){}
     document.getElementById('gas-modal').style.display='none';
-    const statusEl=document.getElementById('csv-status');
-    statusEl.className='csv-status ok';
-    statusEl.textContent='GAS URLを保存しました';
+    showStatus('ok','GAS URLを保存しました');
   }
 };
 window.W=W;
 
-// Show GAS setup hint if not configured
+// Init hint
 if(!gasUrl){
-  const statusEl=document.getElementById('csv-status');
-  statusEl.textContent='⚙ GAS設定からURLを設定してください';
+  showStatus('info','まず ⚙ GAS設定 からURLを設定してください');
 }
 </script>
 </body>
