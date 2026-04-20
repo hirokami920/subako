@@ -553,7 +553,6 @@ function render(){
   app.innerHTML=headerHTML(a)+progressHTML(a,pct)+mobileTabsHTML()+
     '<div class="main-area">'+leftHTML(ids)+rightHTML(ids)+'</div>'+
     mobileNavHTML(ids)+
-    (S.showCsvModal?csvModalHTML():'')+
     (S.showSettingsModal?settingsModalHTML():'')+
     '<div class="poll-ind"><span class="pdot '+(S.gasUrl?'on':'off')+'"></span>'+(S.gasUrl?'自動更新':'')+(S.gasError?' <span style="color:#ef4444">⚠'+S.gasError+'</span>':'')+(S.gasRows?' ('+S.gasRows+'件)':'')+(S.lastPoll?' | '+S.lastPoll.toLocaleTimeString('ja-JP'):'')+'</div>';
 }
@@ -575,16 +574,16 @@ function nodataHTML(){
     '<div class="nodata">'+
     '<div class="nodata-icon">📦</div>'+
     '<div class="nodata-text">巣箱CSVデータがまだアップロードされていません</div>'+
-    '<div class="nodata-sub">ヘッダーの「📂 CSV更新」ボタンからCSVをアップロードしてください<br>アップロード後は全デバイスで自動的に表示されます</div>'+
-    '<button class="setup-btn" style="margin-top:12px" onclick="W.showCsv()">📂 CSVをアップロード</button>'+
-    '</div>'+(S.showCsvModal?csvModalHTML():'')+(S.showSettingsModal?settingsModalHTML():'');
+    '<div class="nodata-sub">TOPページからCSVをアップロードしてください<br>アップロード後は全デバイスで自動的に表示されます</div>'+
+    '<a class="setup-btn" href="index.html" style="margin-top:12px;text-decoration:none;display:inline-block">🏠 TOPページへ</a>'+
+    '</div>'+(S.showSettingsModal?settingsModalHTML():'');
 }
 
 function headerHTMLSimple(){
   return'<div class="header"><div class="header-logo"><span class="header-title">巣箱照合</span></div>'+
     '<div class="header-chips"></div>'+
     '<div class="header-actions">'+
-    '<button class="hdr-btn" onclick="W.showCsv()">📂 CSV更新</button>'+
+    '<a class="hdr-btn" href="index.html">🏠 TOP</a>'+
     '<button class="hdr-btn" onclick="W.showSettings()">⚙ 設定</button></div></div>';
 }
 
@@ -598,7 +597,7 @@ function headerHTML(a){
     '<span class="chip hl">台車 <span class="cv">'+a.dc+'/'+a.tc+'台</span></span>'+
     '<span class="chip hl">製品 <span class="cv">'+a.di+'/'+a.ti+'本</span></span></div>'+
     '<div class="header-actions">'+
-    '<button class="hdr-btn" onclick="W.showCsv()">📂 CSV更新</button>'+
+    '<a class="hdr-btn" href="index.html">🏠 TOP</a>'+
     '<button class="hdr-btn" onclick="W.showSettings()">⚙ 設定</button></div></div>';
 }
 
@@ -673,7 +672,7 @@ function rightHTML(ids){
 
 function mobileNavHTML(ids){
   return'<div class="mobile-nav">'+
-    '<button class="mnav-btn" onclick="W.showCsv()" style="font-size:11px;font-family:var(--font-body)">📂<span class="mnav-pct">CSV</span></button>'+
+    '<a class="mnav-btn" href="index.html" style="font-size:11px;font-family:var(--font-body);text-decoration:none">🏠<span class="mnav-pct">TOP</span></a>'+
     ids.map(id=>{
     const s=cartStats(id);const cp=s.total>0?(s.done/s.total*100).toFixed(0):0;
     let cls=id===S.selectedCart?'active':'';if(s.complete)cls+=' ndone';
@@ -739,8 +738,6 @@ const W={
     render();
   },
   toggleAuto(){S.autoFollow=!S.autoFollow;render()},
-  showCsv(){S.showCsvModal=true;render();setupCsvDrop()},
-  closeCsv(e){if(e.target.classList.contains('modal-bg')){S.showCsvModal=false;render()}},
   showSettings(){S.showSettingsModal=true;render()},
   closeSettings(e){if(e.target.classList.contains('modal-bg')){S.showSettingsModal=false;render()}},
   async saveSettings(){
