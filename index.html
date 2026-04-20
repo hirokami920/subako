@@ -57,13 +57,13 @@ body{
 
 /* Cards container */
 .cards{
-  display:flex;gap:28px;max-width:760px;width:100%;
+  display:flex;gap:24px;max-width:1000px;width:100%;
   justify-content:center;flex-wrap:wrap;
 }
 
 /* Card */
 .card{
-  flex:1;min-width:280px;max-width:360px;
+  flex:1;min-width:260px;max-width:320px;
   background:var(--bg-card);border:1px solid var(--border);border-radius:20px;
   padding:32px 28px;cursor:pointer;transition:all 0.3s cubic-bezier(0.22,1,0.36,1);
   box-shadow:var(--shadow);position:relative;overflow:hidden;
@@ -73,8 +73,9 @@ body{
   content:'';position:absolute;top:0;left:0;right:0;height:4px;
   border-radius:20px 20px 0 0;transition:height 0.3s;
 }
-.card:nth-child(1)::before{background:linear-gradient(90deg,var(--blue-500),var(--blue-400))}
-.card:nth-child(2)::before{background:linear-gradient(90deg,var(--done),#22c55e)}
+.card:nth-child(1)::before{background:linear-gradient(90deg,#f59e0b,#fbbf24)}
+.card:nth-child(2)::before{background:linear-gradient(90deg,var(--blue-500),var(--blue-400))}
+.card:nth-child(3)::before{background:linear-gradient(90deg,var(--done),#22c55e)}
 .card:hover{
   transform:translateY(-6px);
   box-shadow:var(--shadow-lg);
@@ -85,6 +86,7 @@ body{
 /* Staggered animation */
 .card:nth-child(1){animation:fadeUp 0.6s 0.15s cubic-bezier(0.22,1,0.36,1) both}
 .card:nth-child(2){animation:fadeUp 0.6s 0.3s cubic-bezier(0.22,1,0.36,1) both}
+.card:nth-child(3){animation:fadeUp 0.6s 0.45s cubic-bezier(0.22,1,0.36,1) both}
 
 @keyframes fadeUp{
   from{opacity:0;transform:translateY(24px)}
@@ -95,8 +97,9 @@ body{
   width:56px;height:56px;border-radius:14px;
   display:flex;align-items:center;justify-content:center;margin-bottom:16px;
 }
-.card:nth-child(1) .card-icon{background:var(--blue-100)}
-.card:nth-child(2) .card-icon{background:var(--done-bg)}
+.card:nth-child(1) .card-icon{background:#fef3c7}
+.card:nth-child(2) .card-icon{background:var(--blue-100)}
+.card:nth-child(3) .card-icon{background:var(--done-bg)}
 .card-icon svg{width:28px;height:28px}
 
 .card-title{font-size:20px;font-weight:800;margin-bottom:6px;color:var(--text)}
@@ -107,8 +110,9 @@ body{
   font-size:13px;font-weight:700;
   padding:8px 18px;border-radius:10px;transition:all 0.2s;
 }
-.card:nth-child(1) .card-action{background:var(--blue-50);color:var(--blue-600)}
-.card:nth-child(2) .card-action{background:var(--done-bg);color:var(--done)}
+.card:nth-child(1) .card-action{background:#fef3c7;color:#b45309}
+.card:nth-child(2) .card-action{background:var(--blue-50);color:var(--blue-600)}
+.card:nth-child(3) .card-action{background:var(--done-bg);color:var(--done)}
 .card:hover .card-action{transform:translateX(4px)}
 
 .card-arrow{transition:transform 0.2s}
@@ -153,10 +157,34 @@ body{
       </svg>
     </div>
     <h1 class="portal-title">巣箱照合システム</h1>
-    <p class="portal-sub">QR読み取りによる照合と、進捗のリアルタイム可視化</p>
+    <p class="portal-sub">ラベル照合・QR読み取り・進捗のリアルタイム可視化</p>
   </div>
 
   <div class="cards">
+
+    <a class="card" href="label.html">
+      <div class="card-icon">
+        <svg viewBox="0 0 28 28" fill="none">
+          <rect x="4" y="6" width="20" height="16" rx="2" stroke="#b45309" stroke-width="2" fill="none"/>
+          <path d="M9 11h10M9 15h6" stroke="#b45309" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="21" cy="17" r="2" fill="#b45309"/>
+        </svg>
+      </div>
+      <div class="card-title">ラベル照合アプリ</div>
+      <div class="card-features">
+        <span class="feature-tag">🔍 バーコード読取</span>
+        <span class="feature-tag">✅ 3点照合</span>
+        <span class="feature-tag">🖥 PC対応</span>
+      </div>
+      <div class="card-desc">
+        指示書とラベルのバーコードを読み取り、<br>
+        CSVリストと3点照合して記録します。
+      </div>
+      <div class="card-action">
+        アプリを開く
+        <svg class="card-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+    </a>
 
     <a class="card" href="scan.html">
       <div class="card-icon">
@@ -212,7 +240,7 @@ body{
   </div>
 
   <div class="portal-footer">
-    巣箱照合システム — QR照合 &amp; 進捗管理
+    巣箱照合システム — ラベル照合 &amp; QR照合 &amp; 進捗管理
   </div>
 
 </div>
