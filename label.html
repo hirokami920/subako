@@ -165,7 +165,7 @@ function parseCSV(rows){
 }
 
 // ===== STATE =====
-let phase='init',gasUrl='',items=null,verified=new Set(),verifiedList=[];
+let phase='init',gasUrl='',items=null,verifiedFulls=new Set(),verifiedList=[];
 let lastKey=null,lastTime=null,showComplete=false;
 try{gasUrl=localStorage.getItem('subako_gas_url')||''}catch(e){}
 
@@ -192,9 +192,19 @@ async function loadData(){
       const vd=await gasFetch('labelverify');
       if(Array.isArray(vd)&&vd.length>0){
         vd.forEach(row=>{
-          const key=String(Array.isArray(row)?row[1]||'':row.key||'').trim();if(!key)return;
-          const idx=items.findIndex((it,i)=>it.key===key&&!verified.has(i));
-          if(idx>=0){verified.add(idx);verifiedList.unshift({index:idx,key,time:String(Array.isArray(row)?row[0]||'':'')})}
+          // row: [日時, 照合キー, 指示書, ラベル, 結果]
+          const labelFull=String(Array.isArray(row)?row[3]||'':'').trim();
+          const key=String(Array.isArray(row)?row[1]||'':'').trim();
+          if(!labelFull&&!key)return;
+          // Find by full label value first, fallback to key
+          let idx=-1;
+          if(labelFull){idx=items.findIndex((it)=>it.full===labelFull&&!verifiedFulls.has(it.full))}
+          if(idx<0&&key){idx=items.findIndex((it)=>it.key===key&&!verifiedFulls.has(it.full))}
+          if(idx>=0){
+            verifiedFulls.add(items[idx].full);
+            const rawTime=String(Array.isArray(row)?row[0]||'':'');
+            verifiedList.unshift({index:idx,key:items[idx].key,time:fmtTime(rawTime)});
+          }
         });
       }
     }catch(e){}
@@ -203,32 +213,62 @@ async function loadData(){
 }
 
 // ===== VERIFY =====
+// 3-point verification:
+// 1. ラベルQR full value must exist in CSV list (exact match)
+// 2. 指示書コード (#より前) must match ラベルQR (#より前)
+// 3. Same ラベルQR cannot be scanned twice
 function doVerify(shisho,label){
-  const sk=shisho.includes('#')?shisho.substring(0,shisho.indexOf('#')):shisho;
-  const lk=label.includes('#')?label.substring(0,label.indexOf('#')):label;
-  if(sk!==lk){showResult('ng','指示書とラベルが不一致');playNg();return}
-  const idx=items.findIndex((it,i)=>it.key===sk&&!verified.has(i));
+  // Extract keys (before #)
+  const shishoKey=shisho.includes('#')?shisho.substring(0,shisho.indexOf('#')):shisho;
+  const labelKey=label.includes('#')?label.substring(0,label.indexOf('#')):label;
+  // Use label as-is for full matching (trim whitespace)
+  const labelFull=label.trim();
+
+  // Check 1: 指示書 key matches ラベル key
+  if(shishoKey!==labelKey){
+    showResult('ng','指示書とラベルが不一致');playNg();return;
+  }
+
+  // Check 2: Same ラベルQR already scanned?
+  if(verifiedFulls.has(labelFull)){
+    showResult('ng','このラベルは照合済みです');playNg();return;
+  }
+
+  // Check 3: ラベルQR full value exists in CSV list?
+  const idx=items.findIndex(it=>it.full===labelFull);
   if(idx<0){
-    const ad=items.findIndex(it=>it.key===sk);
-    showResult('ng',ad>=0&&verified.has(ad)?'照合済みです':'リストに存在しません');
+    // Maybe partial match exists but full doesn't
+    const partialIdx=items.findIndex(it=>it.key===labelKey);
+    if(partialIdx>=0){
+      showResult('ng','ラベルQRがリストと完全一致しません');
+    }else{
+      showResult('ng','リストに存在しません');
+    }
     playNg();return;
   }
-  verified.add(idx);
+
+  // Check if this specific item is already verified (by another label with same full)
+  if(verifiedFulls.has(items[idx].full)){
+    showResult('ng','このラベルは照合済みです');playNg();return;
+  }
+
+  // All checks passed — OK!
+  verifiedFulls.add(items[idx].full);
   const now=new Date().toLocaleString('ja-JP');
-  verifiedList.unshift({index:idx,key:sk,time:now});
-  lastKey=sk;lastTime=now;
+  verifiedList.unshift({index:idx,key:items[idx].key,time:now});
+  lastKey=items[idx].key;lastTime=now;
   showResult('ok','');
   playOk();
-  gasPost({action:'labelVerify',time:now,key:sk,shisho,label,result:'OK'});
+  gasPost({action:'labelVerify',time:now,key:items[idx].key,shisho,label:labelFull,result:'OK'});
   updateLists();updateProgress();
-  if(verified.size>=items.length){showComplete=true;renderComplete()}
+  if(verifiedFulls.size>=items.length){showComplete=true;renderComplete()}
 }
 
 // ===== DOM REFERENCES (set once after buildApp) =====
 let elResult,elMsg,elShisho,elLabel,elLastInfo,elBeforeBody,elAfterBody,elBeforeCount,elAfterCount,elProgressFill,elProgressText,elChipCount;
 
 function buildApp(){
-  const total=items.length,done=verified.size,pct=total>0?(done/total*100):0;
+  const total=items.length,done=verifiedFulls.size,pct=total>0?(done/total*100):0;
   // Extract packing date and cart count from items
   const now=new Date();
   const issueDate=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
@@ -336,11 +376,11 @@ function updateLists(){
   // Before list
   let bh='';
   items.forEach((it,i)=>{
-    if(verified.has(i))return;
+    if(verifiedFulls.has(items[i].full))return;
     bh+='<tr><td>'+esc(it.key)+'</td><td>'+esc(it.cart+(it.slot>0?'-'+it.slot:''))+'</td></tr>';
   });
   elBeforeBody.innerHTML=bh;
-  elBeforeCount.textContent=items.length-verified.size;
+  elBeforeCount.textContent=items.length-verifiedFulls.size;
 
   // After list
   let ah='';
@@ -353,7 +393,7 @@ function updateLists(){
 }
 
 function updateProgress(){
-  const total=items.length,done=verified.size,pct=total>0?(done/total*100):0;
+  const total=items.length,done=verifiedFulls.size,pct=total>0?(done/total*100):0;
   elProgressFill.style.width=pct+'%';
   elProgressText.textContent=pct.toFixed(1)+'%　'+done+' / '+total+' 照合済み';
   elChipCount.textContent=done+'/'+total+'本';
@@ -369,6 +409,19 @@ function renderComplete(){
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
 
+// Format time: handles ISO 8601 (2026-04-20T23:49:35.000Z), ja-JP locale, or passthrough
+function fmtTime(t){
+  if(!t)return'';
+  const s=String(t).trim();
+  // ISO 8601 format
+  if(s.includes('T')&&(s.endsWith('Z')||s.includes('+'))){
+    try{
+      const d=new Date(s);
+      if(!isNaN(d))return d.toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'});
+    }catch(e){}
+  }
+  return s;
+}
 // ===== PHASE RENDERING =====
 function renderPhase(){
   const app=document.getElementById('app');

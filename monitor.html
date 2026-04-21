@@ -208,11 +208,16 @@ function parseLabelVerify(rows){
   const vSet=new Set(),vList=[];
   if(!labelItems)return;
   rows.forEach(row=>{
-    const key=String(Array.isArray(row)?row[1]||'':'').trim();if(!key)return;
-    const idx=labelItems.findIndex((it,i)=>it.key===key&&!vSet.has(i));
+    const labelFull=String(Array.isArray(row)?row[3]||'':'').trim();
+    const key=String(Array.isArray(row)?row[1]||'':'').trim();
+    if(!labelFull&&!key)return;
+    let idx=-1;
+    if(labelFull){idx=labelItems.findIndex((it)=>it.full===labelFull&&!vSet.has(idx))}
+    if(idx<0&&key){idx=labelItems.findIndex((it,i)=>it.key===key&&!vSet.has(i))}
     if(idx>=0){
       vSet.add(idx);
-      vList.push({index:idx,key,time:String(Array.isArray(row)?row[0]||'':'')});
+      const rawTime=String(Array.isArray(row)?row[0]||'':'');
+      vList.push({index:idx,key:labelItems[idx].key,time:fmtTime(rawTime)});
     }
   });
   labelVerified=vSet;
@@ -296,7 +301,13 @@ function sortCarts(ids){
 
 function fmtD(d){if(!d||d.length!==8)return d;return d.slice(0,4)+'/'+d.slice(4,6)+'/'+d.slice(6,8)}
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
-
+function fmtTime(t){
+  if(!t)return'';const s=String(t).trim();
+  if(s.includes('T')&&(s.endsWith('Z')||s.includes('+'))){
+    try{const d=new Date(s);if(!isNaN(d))return d.toLocaleString('ja-JP',{timeZone:'Asia/Tokyo'})}catch(e){}
+  }
+  return s;
+}
 // ============================================================
 // RENDER
 // ============================================================
