@@ -94,6 +94,19 @@ input[type=file]{display:none}
 .csv-status.err{color:var(--ng);font-weight:700}
 .csv-status.info{color:var(--blue-600)}
 
+/* Pack Date Badges */
+.packdate-section{margin-top:12px;padding-top:10px;border-top:1px dashed var(--border);display:none}
+.packdate-section.has-data{display:block}
+.packdate-label{font-size:11px;color:var(--text3);font-weight:700;margin-bottom:6px}
+.packdate-badges{display:flex;flex-wrap:wrap;gap:6px}
+.packdate-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  background:var(--blue-50);color:var(--blue-700);
+  border:1px solid var(--blue-200);border-radius:20px;
+  padding:4px 12px;font-family:var(--font-mono);font-size:12px;font-weight:700;
+}
+.packdate-badge.today{background:var(--done-bg);color:var(--done);border-color:#86efac}
+
 /* Cards */
 .cards{
   display:flex;gap:24px;max-width:1000px;width:100%;
@@ -205,8 +218,8 @@ input[type=file]{display:none}
             <svg viewBox="0 0 22 22" fill="none"><path d="M6 18h10M11 4v10m-3-3l3 3 3-3" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </div>
           <div class="csv-info">
-            <h3>📂 本日のCSV取込</h3>
-            <p>朝一でCSVファイルを取り込んでから各アプリをご利用ください</p>
+            <h3>📂 CSV追加取込</h3>
+            <p>既存データを残して新しい行を追加 ／ 梱包日で自動グループ化 ／ 最大3日分保持</p>
           </div>
         </div>
         <div class="csv-actions">
@@ -221,6 +234,10 @@ input[type=file]{display:none}
         ここにCSVファイルをドラッグ＆ドロップでも取り込めます
       </div>
       <div class="csv-status" id="csv-status"></div>
+      <div class="packdate-section" id="packdate-section">
+        <div class="packdate-label">📅 保持中の梱包日</div>
+        <div class="packdate-badges" id="packdate-badges"></div>
+      </div>
     </div>
   </div>
 
@@ -370,7 +387,7 @@ function uploadCSV(file){
       showStatus('err','CSVデータが空です');
       return;
     }
-    showStatus('info','アップロード中... ('+lines.length+'行)');
+    showStatus('info','追加アップロード中... ('+lines.length+'行)');
     try{
       const rows=lines.map(l=>[l]);
       const r=await fetch(gasUrl,{
@@ -380,7 +397,15 @@ function uploadCSV(file){
       });
       const result=await r.json();
       if(result.status==='ok'){
-        showStatus('ok','✓ 取込完了！ '+(result.count||lines.length)+'行を保存しました');
+        const added=result.added!==undefined?result.added:lines.length;
+        const total=result.count!==undefined?result.count:'?';
+        let msg='✓ 取込完了！ 新規'+added+'件追加（合計'+total+'件保持）';
+        if(result.removedByDate>0){
+          msg+=' ／ 古い梱包日'+result.removedByDate+'件を自動削除';
+        }
+        showStatus('ok',msg);
+        // 梱包日一覧を更新
+        if(result.packDates)renderPackDates(result.packDates);
       }else{
         showStatus('err','エラー: '+(result.message||'不明'));
       }
@@ -396,6 +421,40 @@ function showStatus(type,msg){
   statusEl.textContent=msg;
 }
 
+// ===== Pack Date Display =====
+function fmtPackDate(d){
+  if(!d||d.length!==8)return d;
+  return d.slice(0,4)+'/'+d.slice(4,6)+'/'+d.slice(6,8);
+}
+function renderPackDates(dates){
+  const section=document.getElementById('packdate-section');
+  const badgesEl=document.getElementById('packdate-badges');
+  if(!dates||dates.length===0){
+    section.classList.remove('has-data');
+    badgesEl.innerHTML='';
+    return;
+  }
+  // Today in YYYYMMDD
+  const now=new Date();
+  const todayStr=now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
+  badgesEl.innerHTML=dates.map(d=>{
+    const cls=d===todayStr?'packdate-badge today':'packdate-badge';
+    return '<span class="'+cls+'">📦 '+fmtPackDate(d)+(d===todayStr?' (今日)':'')+'</span>';
+  }).join('');
+  section.classList.add('has-data');
+}
+
+async function loadPackDates(){
+  if(!gasUrl)return;
+  try{
+    const sep=gasUrl.includes('?')?'&':'?';
+    const r=await fetch(gasUrl+sep+'type=packdates&t='+Date.now(),{redirect:'follow'});
+    if(!r.ok)return;
+    const data=await r.json();
+    if(data&&data.packDates)renderPackDates(data.packDates);
+  }catch(e){}
+}
+
 // ===== GAS Settings =====
 const W={
   showGas(){
@@ -409,6 +468,7 @@ const W={
     try{localStorage.setItem('subako_gas_url',url)}catch(e){}
     document.getElementById('gas-modal').style.display='none';
     showStatus('ok','GAS URLを保存しました');
+    if(gasUrl)loadPackDates();
   }
 };
 window.W=W;
@@ -416,6 +476,8 @@ window.W=W;
 // Init hint
 if(!gasUrl){
   showStatus('info','まず ⚙ GAS設定 からURLを設定してください');
+}else{
+  loadPackDates();
 }
 </script>
 </body>

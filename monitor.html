@@ -45,6 +45,22 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 .panel-left{border-right:2px solid var(--border)}
 .panel-right{}
 
+/* Pack date tabs */
+.packdate-tabs{
+  display:flex;gap:8px;padding:8px 16px;flex-shrink:0;
+  background:var(--bg-card);border-bottom:1px solid var(--border-light);
+  overflow-x:auto;align-items:center;
+}
+.packdate-tabs-label{font-size:12px;color:var(--text3);font-weight:700;margin-right:4px;flex-shrink:0}
+.pd-tab{
+  background:var(--bg);border:1px solid var(--border);color:var(--text2);
+  border-radius:20px;padding:5px 16px;font-family:var(--font-mono);font-size:14px;font-weight:700;
+  cursor:pointer;transition:all 0.2s;white-space:nowrap;flex-shrink:0;
+}
+.pd-tab:hover{border-color:var(--blue-400);color:var(--blue-600)}
+.pd-tab.active{background:var(--blue-600);color:#fff;border-color:var(--blue-600);box-shadow:0 2px 6px rgba(37,99,235,0.3)}
+.pd-tab .pd-count{font-size:11px;opacity:0.85;margin-left:3px}
+
 /* Panel header */
 .panel-header{
   padding:10px 16px;background:var(--bg-card);border-bottom:1px solid var(--border-light);
@@ -132,10 +148,22 @@ table.lt td{padding:4px 8px;border-bottom:1px solid var(--border-light);font-fam
 // STATE
 // ============================================================
 let gasUrl='',phase='init',pollTimer=null,lastPoll=null;
-// Label data
+// All items (全梱包日)
+let allItems=null;
+// 現在選択中の梱包日
+let currentPackDate='';
+// 梱包日一覧（新しい順）
+let packDates=[];
+// Label data (現在梱包日)
 let labelItems=null,labelVerified=new Set(),labelVerifiedList=[];
-// Subako data
+// 各梱包日の検証済み
+// labelVerifiedByDate[pd] = {fulls:Set of full, list:[{index,key,time,deleted?}]}
+let labelVerifiedByDate={};
+// Subako data (現在梱包日)
 let subakoData=null,subakoVerified={};
+// 各梱包日の巣箱検証
+// subakoVerifiedByDate[pd] = {cartId: Set}
+let subakoVerifiedByDate={};
 try{gasUrl=localStorage.getItem('subako_gas_url')||''}catch(e){}
 
 // ============================================================
@@ -155,13 +183,14 @@ function parseCSVItems(rows){
   const items=[];
   rows.forEach(row=>{
     const line=String(row[0]||'').replace(/"/g,'').trim();if(!line)return;
+    if(line.indexOf('ラベル')>=0&&line.indexOf('#')<0)return; // ヘッダー除外
     const hi=line.indexOf('#');if(hi<0)return;
     const key=line.substring(0,hi).trim();
     const after=line.substring(hi+1);const ap=after.split(',');
     const date=ap[0]||'';const ci=(ap[1]||'').trim();
     let cart='',slot=-1,type=1;
     if(ci.includes('-')){const s=ci.split('-');cart=s[0];slot=parseInt(s[1])}else{cart=ci;slot=-1;type=2}
-    items.push({key,date,cart,slot,type});
+    items.push({key,full:line,date,cart,slot,type});
   });
   return items.length>0?items:null;
 }
@@ -178,11 +207,15 @@ function buildSubakoData(items){
 }
 
 function parseSubakoVerify(rows){
-  const v={};
+  // 梱包日ごとにグループ化
+  const vByDate={};
   rows.forEach(row=>{
-    let cartId=null,slotNum=null;
+    let cartId=null,slotNum=null,packDate='';
     if(!Array.isArray(row))return;
     const label=String(row[3]||'').trim();
+    // 梱包日抽出
+    const pdm=label.match(/#(\d{8})/);
+    if(pdm)packDate=pdm[1];
     let m=label.match(/#\d{8},(\d+_\d+)(?:-(\d+))?/);
     if(m){cartId=m[1];slotNum=m[2]?parseInt(m[2]):null}
     if(!cartId){
@@ -196,32 +229,66 @@ function parseSubakoVerify(rows){
       if(cartId){const cs=parseInt(String(row[2]||''));if(!isNaN(cs)&&cs>0)slotNum=cs}
     }
     if(cartId){
-      if(!v[cartId])v[cartId]=new Set();
-      if(slotNum!==null&&!isNaN(slotNum)&&slotNum>0)v[cartId].add(slotNum);
-      else{let idx=0;while(v[cartId].has('t2-'+idx))idx++;v[cartId].add('t2-'+idx)}
+      const pd=packDate||'';
+      if(!vByDate[pd])vByDate[pd]={};
+      if(!vByDate[pd][cartId])vByDate[pd][cartId]=new Set();
+      if(slotNum!==null&&!isNaN(slotNum)&&slotNum>0)vByDate[pd][cartId].add(slotNum);
+      else{let idx=0;while(vByDate[pd][cartId].has('t2-'+idx))idx++;vByDate[pd][cartId].add('t2-'+idx)}
     }
   });
-  return v;
+  subakoVerifiedByDate=vByDate;
+  // 現在選択中の梱包日の検証データをセット
+  subakoVerified=vByDate[currentPackDate]||{};
 }
 
 function parseLabelVerify(rows){
-  const vSet=new Set(),vList=[];
-  if(!labelItems)return;
+  // 梱包日ごとにグループ化
+  const vByDate={};
+  // 各梱包日のバケット初期化
+  packDates.forEach(d=>{vByDate[d]={fulls:new Set(),list:[]}});
+  if(!vByDate[''])vByDate['']={fulls:new Set(),list:[]};
+
   rows.forEach(row=>{
     const labelFull=String(Array.isArray(row)?row[3]||'':'').trim();
     const key=String(Array.isArray(row)?row[1]||'':'').trim();
+    const result=String(Array.isArray(row)?row[4]||'':'').trim();
+    if(result.indexOf('OK')!==0)return;
     if(!labelFull&&!key)return;
+    const rawTime=String(Array.isArray(row)?row[0]||'':'');
+    // allItemsから検索
     let idx=-1;
-    if(labelFull){idx=labelItems.findIndex((it)=>it.full===labelFull&&!vSet.has(idx))}
-    if(idx<0&&key){idx=labelItems.findIndex((it,i)=>it.key===key&&!vSet.has(i))}
+    if(allItems){
+      if(labelFull)idx=allItems.findIndex(it=>it.full===labelFull);
+      if(idx<0&&key)idx=allItems.findIndex(it=>it.key===key);
+    }
     if(idx>=0){
-      vSet.add(idx);
-      const rawTime=String(Array.isArray(row)?row[0]||'':'');
-      vList.push({index:idx,key:labelItems[idx].key,time:fmtTime(rawTime)});
+      const it=allItems[idx];
+      const d=it.date||'';
+      if(!vByDate[d])vByDate[d]={fulls:new Set(),list:[]};
+      if(vByDate[d].fulls.has(it.full))return;
+      vByDate[d].fulls.add(it.full);
+      vByDate[d].list.push({index:idx,key:it.key,time:fmtTime(rawTime)});
+    }else{
+      // CSV上に存在しない（両方完了で削除済み）
+      let pd='';
+      const hi=labelFull.indexOf('#');
+      if(hi>=0){const mm=labelFull.substring(hi+1).match(/^(\d{8})/);if(mm)pd=mm[1]}
+      if(pd){
+        if(!vByDate[pd])vByDate[pd]={fulls:new Set(),list:[]};
+        if(!vByDate[pd].fulls.has(labelFull)){
+          vByDate[pd].fulls.add(labelFull);
+          vByDate[pd].list.push({index:-1,key:key||labelFull,time:fmtTime(rawTime),deleted:true});
+        }
+      }
     }
   });
-  labelVerified=vSet;
-  labelVerifiedList=vList.reverse(); // newest first
+  // 新しい順になるよう reverse（元データが古い順で入っている前提）
+  Object.keys(vByDate).forEach(d=>{vByDate[d].list=vByDate[d].list.reverse()});
+  labelVerifiedByDate=vByDate;
+  // 現在選択中梱包日のデータをセット
+  const bucket=vByDate[currentPackDate]||{fulls:new Set(),list:[]};
+  labelVerified=bucket.fulls;
+  labelVerifiedList=bucket.list;
 }
 
 // ============================================================
@@ -234,12 +301,23 @@ async function loadAll(){
     if(csvData&&csvData.status==='ok'&&csvData.data&&csvData.data.length>0){
       let rows=csvData.data;
       if(rows[0]&&String(rows[0][0]).includes('ラベル'))rows=rows.slice(1);
-      labelItems=parseCSVItems(rows);
-      if(labelItems)subakoData=buildSubakoData(labelItems);
+      allItems=parseCSVItems(rows);
+      if(allItems){
+        // 梱包日一覧（新しい順）
+        const dateSet={};
+        allItems.forEach(it=>{if(it.date)dateSet[it.date]=true});
+        packDates=Object.keys(dateSet).sort((a,b)=>b.localeCompare(a));
+        // デフォルトは最小（最古）梱包日 — 要件「デフォルトは最小梱包日」
+        if(!currentPackDate||packDates.indexOf(currentPackDate)<0){
+          currentPackDate=packDates.length>0?packDates[packDates.length-1]:'';
+        }
+        // 現在梱包日で items/subakoData を構築
+        applyCurrentPackDate();
+      }
     }
-    if(!labelItems){phase='nodata';renderPhase();return}
+    if(!allItems){phase='nodata';renderPhase();return}
 
-    // Load verifications
+    // Load verifications (全梱包日)
     await pollData();
 
     phase='app';
@@ -250,22 +328,69 @@ async function loadAll(){
   }
 }
 
+// 現在梱包日に合わせて表示用データを切り替え
+function applyCurrentPackDate(){
+  if(!allItems){labelItems=null;subakoData=null;return}
+  labelItems=allItems.filter(it=>(it.date||'')===currentPackDate);
+  subakoData=buildSubakoData(labelItems);
+  // 検証データも切替
+  const lbucket=labelVerifiedByDate[currentPackDate]||{fulls:new Set(),list:[]};
+  labelVerified=lbucket.fulls;
+  labelVerifiedList=lbucket.list;
+  subakoVerified=subakoVerifiedByDate[currentPackDate]||{};
+}
+
+// タブ切替
+function switchPackDate(pd){
+  if(!pd||pd===currentPackDate)return;
+  if(packDates.indexOf(pd)<0)return;
+  currentPackDate=pd;
+  applyCurrentPackDate();
+  // 再構築
+  buildDashboard();
+}
+window.switchPackDate=switchPackDate;
+
 async function pollData(){
   try{
-    // Label verifications
+    // Label verifications（全梱包日）
     try{
       const lv=await gasFetch('labelverify');
       if(Array.isArray(lv))parseLabelVerify(lv);
     }catch(e){}
 
-    // Subako verifications
+    // Subako verifications（全梱包日）
     try{
       const sv=await gasFetch('verify');
-      if(Array.isArray(sv))subakoVerified=parseSubakoVerify(sv);
+      if(Array.isArray(sv))parseSubakoVerify(sv);
     }catch(e){}
 
+    // CSV再取得（両方完了で削除された行を反映）
+    try{
+      const csvData=await gasFetch('csv');
+      if(csvData&&csvData.status==='ok'&&csvData.data){
+        let rows=csvData.data;
+        if(rows[0]&&String(rows[0][0]).includes('ラベル'))rows=rows.slice(1);
+        const newAll=parseCSVItems(rows);
+        if(newAll){
+          allItems=newAll;
+          const dateSet={};
+          allItems.forEach(it=>{if(it.date)dateSet[it.date]=true});
+          packDates=Object.keys(dateSet).sort((a,b)=>b.localeCompare(a));
+          // 現在梱包日が消えていたら最小（最古）に切替
+          if(packDates.indexOf(currentPackDate)<0){
+            currentPackDate=packDates.length>0?packDates[packDates.length-1]:'';
+          }
+        }
+      }
+    }catch(e){}
+
+    applyCurrentPackDate();
+
     lastPoll=new Date();
-    if(phase==='app')updateUI();
+    if(phase==='app'){
+      buildDashboard(); // タブも更新するため全体再構築
+    }
   }catch(e){console.warn('poll error:',e)}
 }
 
@@ -335,10 +460,25 @@ function renderPhase(){
   }
 }
 
+function packDateTabsHTML(){
+  if(!packDates||packDates.length===0)return'';
+  let html='<div class="packdate-tabs"><span class="packdate-tabs-label">📅 梱包日</span>';
+  // 古い順（最小から）表示: 要件「デフォルトは最小梱包日」に沿ってUIも古い順で並べる
+  const sorted=packDates.slice().reverse();
+  sorted.forEach(d=>{
+    const filtered=(allItems||[]).filter(it=>it.date===d);
+    const totalItems=filtered.length;
+    const cls=d===currentPackDate?'pd-tab active':'pd-tab';
+    html+='<button class="'+cls+'" onclick="switchPackDate(\''+d+'\')">'+fmtD(d)+' <span class="pd-count">('+totalItems+')</span></button>';
+  });
+  html+='</div>';
+  return html;
+}
+
 function buildDashboard(){
   const now=new Date();
   const issueDate=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
-  const packDate=labelItems&&labelItems[0]?fmtD(labelItems[0].date):'';
+  const packDateDisp=currentPackDate?fmtD(currentPackDate):'';
   const cartSet=new Set();
   if(labelItems)labelItems.forEach(it=>{if(it.cart)cartSet.add(it.cart)});
   const totalItems=labelItems?labelItems.length:0;
@@ -349,13 +489,16 @@ function buildDashboard(){
     '<div class="header"><span class="header-title">統合ダッシュボード</span>'+
     '<div class="header-chips">'+
     '<span class="chip">発行 <span class="cv">'+issueDate+'</span></span>'+
-    (packDate?'<span class="chip">梱包 <span class="cv">'+packDate+'</span></span>':'')+
+    (packDateDisp?'<span class="chip">梱包 <span class="cv">'+packDateDisp+'</span></span>':'')+
     '<span class="chip">台車 <span class="cv">'+cartSet.size+'台</span></span>'+
     '<span class="chip hl" id="chip-label">ラベル <span class="cv">'+labelVerified.size+'/'+totalItems+'</span></span>'+
     '<span class="chip hl" id="chip-subako">巣箱 <span class="cv">'+sa.di+'/'+sa.ti+'</span></span>'+
     '</div>'+
     '<span class="poll-info" id="poll-info"></span>'+
     '<a class="hdr-btn" href="index.html">🏠 TOP</a></div>'+
+
+    // Pack Date Tabs
+    packDateTabsHTML()+
 
     // Main split
     '<div class="main">'+
@@ -407,30 +550,43 @@ function updateUI(){
   const total=labelItems.length;
 
   // === Label side ===
-  const lDone=labelVerified.size;
-  const lPct=total>0?(lDone/total*100):0;
+  // labelVerified は Set<full>
+  // 現在の labelItems の中で、full が labelVerified に含まれているものを照合済みとする
+  let lDoneInCurrent=0;
+  labelItems.forEach(it=>{if(labelVerified.has(it.full))lDoneInCurrent++});
+  // 削除済み項目（CSV上に存在しない）もlabelVerifiedListに含まれる
+  const lDoneTotal=labelVerifiedList.length; // この梱包日で完了した総数
+  // 実際の進捗率：現梱包日CSVに残っているtotal + 削除済み完了件数 を元の総数とみなす
+  const originalTotal=total+(lDoneTotal-lDoneInCurrent);
+  const lPct=originalTotal>0?(lDoneTotal/originalTotal*100):0;
   elLabelProgFill.style.width=lPct+'%';
-  elLabelProgText.textContent=lPct.toFixed(1)+'%　'+lDone+' / '+total+' 照合済み';
-  elLabelStats.innerHTML='<span class="pstat pstat-done">'+lDone+'件完了</span><span class="pstat pstat-total">全'+total+'件</span>';
-  elChipLabel.innerHTML='ラベル <span class="cv">'+lDone+'/'+total+'</span>';
+  elLabelProgText.textContent=lPct.toFixed(1)+'%　'+lDoneTotal+' / '+originalTotal+' 照合済み';
+  elLabelStats.innerHTML='<span class="pstat pstat-done">'+lDoneTotal+'件完了</span><span class="pstat pstat-total">全'+originalTotal+'件</span>';
+  elChipLabel.innerHTML='ラベル <span class="cv">'+lDoneTotal+'/'+originalTotal+'</span>';
 
-  // Before list
+  // Before list：現在のlabelItems中で未照合のもの
   let bh='';
-  labelItems.forEach((it,i)=>{
-    if(labelVerified.has(i))return;
+  labelItems.forEach(it=>{
+    if(labelVerified.has(it.full))return;
     bh+='<tr><td>'+esc(it.key)+'</td><td>'+esc(it.cart+(it.slot>0?'-'+it.slot:''))+'</td></tr>';
   });
   elLabelBeforeBody.innerHTML=bh;
-  elLabelBeforeCount.textContent=total-lDone;
+  elLabelBeforeCount.textContent=total-lDoneInCurrent;
 
   // After list
   let ah='';
   labelVerifiedList.forEach(v=>{
-    const it=labelItems[v.index];
-    ah+='<tr><td>'+esc(v.key)+'</td><td>'+esc(it.cart+(it.slot>0?'-'+it.slot:''))+'</td><td class="time-col">'+esc(v.time)+'</td></tr>';
+    // deletedフラグ、またはindex参照失敗（allItems基準のindex）
+    let cartDisp='<span style="color:var(--text3)">—</span>';
+    if(!v.deleted&&v.index>=0&&allItems&&allItems[v.index]){
+      const it=allItems[v.index];
+      cartDisp=esc(it.cart+(it.slot>0?'-'+it.slot:''));
+    }
+    const rowStyle=v.deleted?' style="opacity:0.6"':'';
+    ah+='<tr'+rowStyle+'><td>'+esc(v.key)+'</td><td>'+cartDisp+'</td><td class="time-col">'+esc(v.time)+'</td></tr>';
   });
   elLabelAfterBody.innerHTML=ah;
-  elLabelAfterCount.textContent=lDone;
+  elLabelAfterCount.textContent=lDoneTotal;
 
   // === Subako side ===
   if(subakoData){

@@ -52,6 +52,24 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 }
 .hdr-btn:hover{background:rgba(255,255,255,0.3)}
 
+/* PACK DATE TABS */
+.packdate-tabs{
+  display:flex;gap:6px;padding:8px 20px;flex-shrink:0;
+  background:var(--bg-card);border-bottom:1px solid var(--border-light);
+  overflow-x:auto;align-items:center;
+}
+.packdate-tabs-label{font-size:11px;color:var(--text3);font-weight:700;margin-right:4px;flex-shrink:0}
+.pd-tab{
+  background:var(--bg);border:1px solid var(--border);color:var(--text2);
+  border-radius:20px;padding:5px 14px;font-family:var(--font-mono);font-size:13px;font-weight:700;
+  cursor:pointer;transition:all 0.2s;white-space:nowrap;flex-shrink:0;
+}
+.pd-tab:hover{border-color:var(--blue-400);color:var(--blue-600)}
+.pd-tab.active{background:var(--blue-600);color:#fff;border-color:var(--blue-600);box-shadow:0 2px 6px rgba(37,99,235,0.3)}
+.pd-tab .pd-count{font-size:10px;opacity:0.85;margin-left:3px}
+.pd-tab.working{background:var(--active-bg);color:var(--active-orange);border-color:#fcd34d}
+.pd-tab.working.active{background:var(--active-orange);color:#fff;border-color:var(--active-orange)}
+
 /* PROGRESS */
 .progress-section{padding:10px 20px;flex-shrink:0;background:var(--bg-card);border-bottom:1px solid var(--border-light)}
 .progress-bar-outer{background:#d1fae5;border-radius:20px;height:32px;position:relative;overflow:hidden;border:1px solid #86efac}
@@ -331,7 +349,7 @@ function parseCSVText(text){
     let cart,slot,type;
     if(ci.includes('-')){const s=ci.split('-');cart=s[0];slot=parseInt(s[1]);type=1}
     else{cart=ci;slot=-1;type=2}
-    items.push({product:pp[0]||'',num:pp[1]||'',date,cart,slot,type});
+    items.push({product:pp[0]||'',num:pp[1]||'',date,cart,slot,type,full:line});
   }
   return items;
 }
@@ -342,6 +360,7 @@ function parseCSVFromGAS(rows){
   rows.forEach(row=>{
     const line=String(row[0]||'').replace(/"/g,'').trim();
     if(!line)return;
+    if(line.indexOf('ラベル')>=0&&line.indexOf('#')<0)return;
     const hi=line.indexOf('#');
     if(hi<0)return;
     const before=line.substring(0,hi),after=line.substring(hi+1);
@@ -350,32 +369,49 @@ function parseCSVFromGAS(rows){
     let cart,slot,type;
     if(ci.includes('-')){const s=ci.split('-');cart=s[0];slot=parseInt(s[1]);type=1}
     else{cart=ci;slot=-1;type=2}
-    items.push({product:pp[0]||'',num:pp[1]||'',date,cart,slot,type});
+    items.push({product:pp[0]||'',num:pp[1]||'',date,cart,slot,type,full:line});
   });
   return items.length>0?items:null;
 }
 
-function buildCartData(items){
-  const carts={};let date='';
-  items.forEach(it=>{
+// 全アイテムから梱包日一覧を新しい順で取得
+function collectPackDates(items){
+  const set={};
+  items.forEach(it=>{if(it.date)set[it.date]=true});
+  return Object.keys(set).sort((a,b)=>b.localeCompare(a));
+}
+
+// 指定梱包日のみを対象に台車データ構築
+function buildCartData(items,packDate){
+  const filtered=packDate?items.filter(it=>it.date===packDate):items;
+  const carts={};let date=packDate||'';
+  filtered.forEach(it=>{
     if(!date&&it.date)date=it.date;
     if(!carts[it.cart])carts[it.cart]={slots:{},type2:[],maxSlot:0};
-    if(it.type===1){carts[it.cart].slots[it.slot]={product:it.product,num:it.num};if(it.slot>carts[it.cart].maxSlot)carts[it.cart].maxSlot=it.slot}
-    else carts[it.cart].type2.push({product:it.product,num:it.num});
+    if(it.type===1){carts[it.cart].slots[it.slot]={product:it.product,num:it.num,full:it.full};if(it.slot>carts[it.cart].maxSlot)carts[it.cart].maxSlot=it.slot}
+    else carts[it.cart].type2.push({product:it.product,num:it.num,full:it.full});
   });
-  return{carts,date,totalItems:items.length};
+  return{carts,date,totalItems:filtered.length};
 }
 
 // ============================================================
 // STATE
 // ============================================================
 const S={
-  cartData:null,selectedCart:null,verified:{},
+  // CSV管理
+  allItems:null,         // 全梱包日の全アイテム
+  packDates:[],          // 梱包日一覧(新しい順)
+  currentPackDate:'',    // 選択中の梱包日
+  cartData:null,         // 現在梱包日の台車データ
+  selectedCart:null,
+  // 検証済み（梱包日→cartId→Set）
+  verifiedByDate:{},
+  verified:{},           // 現在梱包日の検証データ（verifiedByDate[currentPackDate]）
   gasUrl:'',pollTimer:null,lastPoll:null,gasError:null,gasRows:0,
   phase:'init', // 'init' | 'setup' | 'loading' | 'nodata' | 'dashboard'
   showCsvModal:false,showSettingsModal:false,
   mobileView:'cart',autoFollow:true,
-  lastVerifiedCart:null,lastVerifiedLabel:null,lastVerifiedSlot:null,lastVerifiedTime:null,
+  lastVerifiedCart:null,lastVerifiedLabel:null,lastVerifiedSlot:null,lastVerifiedTime:null,lastVerifiedPackDate:null,
   csvUploading:false,
 };
 try{S.gasUrl=localStorage.getItem('subako_gas_url')||''}catch(e){}
@@ -409,11 +445,19 @@ async function loadAll(){
     const data=await gasFetch('both');
     // CSV data
     if(data.csv&&data.csv.status==='ok'&&data.csv.data&&data.csv.data.length>0){
-      // First row might be header "ラベルQR"
       let rows=data.csv.data;
       if(rows[0]&&String(rows[0][0]).includes('ラベル'))rows=rows.slice(1);
-      const items=parseCSVFromGAS(rows);
-      if(items)S.cartData=buildCartData(items);
+      const allItems=parseCSVFromGAS(rows);
+      if(allItems){
+        S.allItems=allItems;
+        S.packDates=(data.csv.packDates&&data.csv.packDates.length)?data.csv.packDates:collectPackDates(allItems);
+        // 初回は最小梱包日（最古）を選択 → 要件的に「作業中」を想定→実際の自動追従で切替
+        // デフォルトは最新（先頭）。自動追従が働けば適切なものに切り替わる
+        if(!S.currentPackDate||S.packDates.indexOf(S.currentPackDate)<0){
+          S.currentPackDate=S.packDates[0]||'';
+        }
+        S.cartData=buildCartData(allItems,S.currentPackDate);
+      }
     }
     // Verify data
     if(data.verify){
@@ -434,6 +478,16 @@ async function loadAll(){
   render();
 }
 
+// 梱包日を切り替える
+function switchPackDate(pd){
+  if(!pd||pd===S.currentPackDate)return;
+  if(S.packDates.indexOf(pd)<0)return;
+  S.currentPackDate=pd;
+  S.cartData=buildCartData(S.allItems||[],pd);
+  S.verified=S.verifiedByDate[pd]||{};
+  S.selectedCart=null; // 新しい梱包日では選択リセット
+}
+
 // Poll verify data only (every 5s)
 async function pollVerify(){
   if(!S.gasUrl||!S.cartData)return;
@@ -451,14 +505,17 @@ async function pollVerify(){
 }
 
 function parseVerifyRows(rows){
-  const v={};
-  let lastCart=null,lastLabel=null,lastSlot=null,lastTime=null;
+  const vByDate={};
+  let lastCart=null,lastLabel=null,lastSlot=null,lastTime=null,lastPackDate=null;
   rows.forEach(row=>{
-    let cartId=null,slotNum=null,productLabel=null,rowTime=null;
+    let cartId=null,slotNum=null,productLabel=null,rowTime=null,packDate='';
     if(Array.isArray(row)){
       rowTime=row[0]?String(row[0]):'';
       const label=String(row[3]||'').trim();
       productLabel=label;
+      // 梱包日抽出
+      const pdm=label.match(/#(\d{8})/);
+      if(pdm)packDate=pdm[1];
       let m=label.match(/#\d{8},(\d+_\d+)(?:-(\d+))?/);
       if(m){cartId=m[1];slotNum=m[2]?parseInt(m[2]):null}
       if(!cartId){
@@ -479,24 +536,36 @@ function parseVerifyRows(rows){
     }else if(typeof row==='object'){
       const label=row['製品ラベル']||row.label||row.qr||'';
       productLabel=String(label);
+      const pdm=String(label).match(/#(\d{8})/);
+      if(pdm)packDate=pdm[1];
       let m=String(label).match(/#\d{8},(\d+_\d+)(?:-(\d+))?/);
       if(m){cartId=m[1];slotNum=m[2]?parseInt(m[2]):null}
     }
     if(cartId){
-      if(!v[cartId])v[cartId]=new Set();
-      if(slotNum!==null&&!isNaN(slotNum)&&slotNum>0)v[cartId].add(slotNum);
-      else{let idx=0;while(v[cartId].has('t2-'+idx))idx++;v[cartId].add('t2-'+idx)}
-      lastCart=cartId;lastSlot=slotNum;lastLabel=productLabel;lastTime=rowTime;
+      const pd=packDate||'';
+      if(!vByDate[pd])vByDate[pd]={};
+      if(!vByDate[pd][cartId])vByDate[pd][cartId]=new Set();
+      if(slotNum!==null&&!isNaN(slotNum)&&slotNum>0)vByDate[pd][cartId].add(slotNum);
+      else{let idx=0;while(vByDate[pd][cartId].has('t2-'+idx))idx++;vByDate[pd][cartId].add('t2-'+idx)}
+      lastCart=cartId;lastSlot=slotNum;lastLabel=productLabel;lastTime=rowTime;lastPackDate=pd;
     }
   });
-  S.verified=v;
+  S.verifiedByDate=vByDate;
+  S.verified=vByDate[S.currentPackDate]||{};
   if(lastCart){
-    S.lastVerifiedCart=lastCart;S.lastVerifiedSlot=lastSlot;S.lastVerifiedTime=fmtTime(lastTime);
+    S.lastVerifiedCart=lastCart;S.lastVerifiedSlot=lastSlot;S.lastVerifiedTime=fmtTime(lastTime);S.lastVerifiedPackDate=lastPackDate;
     if(lastLabel){const hi=lastLabel.indexOf('#');S.lastVerifiedLabel=hi>0?lastLabel.substring(0,hi):lastLabel}
-    // Auto-follow: switch selected cart to the latest verified cart
-    if(S.autoFollow&&S.cartData&&S.cartData.carts[lastCart]){
-      console.log('[AutoFollow] switching to',lastCart);
-      S.selectedCart=lastCart;
+    // Auto-follow: 梱包日とcartを追従
+    if(S.autoFollow){
+      // 異なる梱包日なら切替
+      if(lastPackDate&&lastPackDate!==S.currentPackDate&&S.packDates.indexOf(lastPackDate)>=0){
+        console.log('[AutoFollow] switching packDate to',lastPackDate);
+        switchPackDate(lastPackDate);
+      }
+      if(S.cartData&&S.cartData.carts[lastCart]){
+        console.log('[AutoFollow] switching cart to',lastCart);
+        S.selectedCart=lastCart;
+      }
     }
   }
 }
@@ -551,11 +620,35 @@ function render(){
   const ids=sortC(Object.keys(S.cartData.carts));
   if(!S.selectedCart||!S.cartData.carts[S.selectedCart])S.selectedCart=ids[0];
 
-  app.innerHTML=headerHTML(a)+progressHTML(a,pct)+mobileTabsHTML()+
+  app.innerHTML=headerHTML(a)+packDateTabsHTML()+progressHTML(a,pct)+mobileTabsHTML()+
     '<div class="main-area">'+leftHTML(ids)+rightHTML(ids)+'</div>'+
     mobileNavHTML(ids)+
     (S.showSettingsModal?settingsModalHTML():'')+
     '<div class="poll-ind"><span class="pdot '+(S.gasUrl?'on':'off')+'"></span>'+(S.gasUrl?'自動更新':'')+(S.gasError?' <span style="color:#ef4444">⚠'+S.gasError+'</span>':'')+(S.gasRows?' ('+S.gasRows+'件)':'')+(S.lastPoll?' | '+S.lastPoll.toLocaleTimeString('ja-JP'):'')+'</div>';
+}
+
+function packDateTabsHTML(){
+  if(!S.packDates||S.packDates.length===0)return'';
+  let html='<div class="packdate-tabs"><span class="packdate-tabs-label">📅 梱包日</span>';
+  S.packDates.forEach(d=>{
+    // 作業中判定: その梱包日に未完了の台車がある
+    const filtered=(S.allItems||[]).filter(it=>it.date===d);
+    const vbd=S.verifiedByDate[d]||{};
+    let totalItems=filtered.length,doneItems=0;
+    const cartMap={};
+    filtered.forEach(it=>{if(!cartMap[it.cart])cartMap[it.cart]={};cartMap[it.cart][it.slot>0?it.slot:'t2-'+(Object.keys(cartMap[it.cart]).length)]=true});
+    Object.keys(vbd).forEach(cid=>{const set=vbd[cid];set.forEach(()=>doneItems++)});
+    // doneItemsは他梱包日のデータが混入する可能性を避けるため、実数より多く/少なく出る可能性あり
+    // 単純にカウント
+    const isWorking=d===S.currentPackDate;
+    const isWorkingVsLabel=(S.lastVerifiedPackDate===d);
+    let cls='pd-tab';
+    if(d===S.currentPackDate)cls+=' active';
+    if(isWorkingVsLabel&&d!==S.currentPackDate)cls+=' working';
+    html+='<button class="'+cls+'" onclick="W.setPackDate(\''+d+'\')">'+fmtD(d)+' <span class="pd-count">('+totalItems+')</span></button>';
+  });
+  html+='</div>';
+  return html;
 }
 
 function setupHTML(){
@@ -589,7 +682,7 @@ function headerHTMLSimple(){
 }
 
 function headerHTML(a){
-  const d=S.cartData.date,now=new Date();
+  const d=S.currentPackDate||(S.cartData?S.cartData.date:''),now=new Date();
   const today=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
   return'<div class="header"><div class="header-logo"><span class="header-title">巣箱照合</span></div>'+
     '<div class="header-chips">'+
@@ -732,10 +825,17 @@ const W={
     }
   },
   sel(cid){S.selectedCart=cid;render()},
+  setPackDate(pd){
+    switchPackDate(pd);
+    render();
+  },
   tog(cid,sk){
-    if(!S.verified[cid])S.verified[cid]=new Set();
+    if(!S.verifiedByDate[S.currentPackDate])S.verifiedByDate[S.currentPackDate]={};
+    if(!S.verifiedByDate[S.currentPackDate][cid])S.verifiedByDate[S.currentPackDate][cid]=new Set();
     const k=typeof sk==='string'?sk:parseInt(sk);
-    if(S.verified[cid].has(k))S.verified[cid].delete(k);else S.verified[cid].add(k);
+    const bucket=S.verifiedByDate[S.currentPackDate][cid];
+    if(bucket.has(k))bucket.delete(k);else bucket.add(k);
+    S.verified=S.verifiedByDate[S.currentPackDate];
     render();
   },
   toggleAuto(){S.autoFollow=!S.autoFollow;render()},
@@ -787,15 +887,12 @@ async function handleCSVFile(file){
       const rows=lines.map(l=>[l]);
       const result=await gasPost({action:'uploadCSV',rows:rows});
       if(result.status==='ok'){
-        if(statusEl)statusEl.innerHTML='<span style="color:var(--done)">✓ アップロード完了！ '+result.count+'行を保存しました</span>';
-        // Reload data
-        S.cartData=buildCartData(items);
+        const added=result.added!==undefined?result.added:items.length;
+        if(statusEl)statusEl.innerHTML='<span style="color:var(--done)">✓ 新規'+added+'件追加 / 合計'+result.count+'件保持</span>';
+        // Reload fully to reflect merged state
         S.showCsvModal=false;
-        S.phase='dashboard';
+        await loadAll();
         startPoll();
-        // Also fetch latest verify data
-        await pollVerify();
-        render();
       }else{
         if(statusEl)statusEl.innerHTML='<span style="color:#ef4444">エラー: '+(result.message||'不明')+'</span>';
       }
