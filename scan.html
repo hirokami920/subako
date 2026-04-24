@@ -350,7 +350,8 @@ let DEVICE_NAME = '';
 
 function loadSetup() {
   try {
-    GAS_URL = localStorage.getItem('qr_gas_url') || '';
+    // TOPページと共通のGAS URL
+    GAS_URL = localStorage.getItem('subako_gas_url') || '';
     DEVICE_NAME = localStorage.getItem('qr_device_name') || '';
   } catch(e) {}
 }
@@ -363,7 +364,7 @@ function saveSetup() {
   }
   GAS_URL = url;
   DEVICE_NAME = device;
-  try { localStorage.setItem('qr_gas_url', url); localStorage.setItem('qr_device_name', device); } catch(e) {}
+  try { localStorage.setItem('subako_gas_url', url); localStorage.setItem('qr_device_name', device); } catch(e) {}
   showMain();
 }
 function skipSetup() { GAS_URL = ''; DEVICE_NAME = ''; showMain(); }
@@ -1044,7 +1045,15 @@ function downloadCSV() {
 
 // =========== 起動 ===========
 loadSetup();
-if (GAS_URL) { document.getElementById('gas-url').value = GAS_URL; document.getElementById('device-name').value = DEVICE_NAME; }
+if (GAS_URL) {
+  // TOPページでGAS設定済み → 設定画面スキップ、直接メイン画面へ
+  showMain();
+} else {
+  // 未設定 → 設定画面を表示
+  if (document.getElementById('device-name')) {
+    document.getElementById('device-name').value = DEVICE_NAME;
+  }
+}
 </script>
 </body>
 </html>
