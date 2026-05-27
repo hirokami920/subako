@@ -37,7 +37,7 @@
     display:flex; align-items:center; justify-content:center; overflow:hidden; }
   #video{ width:100%; height:100%; object-fit:cover; }
   #frame{ position:absolute; width:78%; aspect-ratio:1/1; max-width:340px; border-radius:18px;
-    pointer-events:none; box-shadow:0 0 0 4000px rgba(0,0,0,.25); }
+    pointer-events:none; box-shadow:0 0 0 4000px rgba(0,0,0,.18); }
   #frame::before,#frame::after,#frame i::before,#frame i::after{
     content:""; position:absolute; width:32px; height:32px;
     border:5px solid var(--blue-bright); border-radius:4px; }
@@ -51,6 +51,16 @@
   @keyframes scan{0%{top:12%}50%{top:86%}100%{top:12%}}
   #hint{ position:absolute; bottom:16px; left:0; right:0; text-align:center;
     font-size:14px; font-weight:700; text-shadow:0 1px 4px #000; padding:0 16px; }
+  /* ピント合わせ用タップ波紋 */
+  #focusRing{ position:absolute; width:70px; height:70px; border:2px solid #fff; border-radius:50%;
+    transform:translate(-50%,-50%) scale(1); opacity:0; pointer-events:none; }
+  #focusRing.go{ animation:focusPulse .6s ease-out; }
+  @keyframes focusPulse{ 0%{opacity:1; transform:translate(-50%,-50%) scale(1.4);} 100%{opacity:0; transform:translate(-50%,-50%) scale(.8);} }
+  /* トーチ（ライト）ボタン */
+  #torchBtn{ position:absolute; top:12px; right:12px; width:46px; height:46px; border-radius:50%;
+    background:rgba(0,0,0,.5); border:1px solid rgba(255,255,255,.35); color:#fff; font-size:22px;
+    display:none; align-items:center; justify-content:center; cursor:pointer; flex:none; padding:0; }
+  #torchBtn.on{ background:#ffd54a; color:#222; }
 
   #saved{ background:var(--panel); border-top:1px solid var(--line); padding:9px 14px;
     font-size:12px; color:var(--muted); display:flex; gap:6px; align-items:center; min-height:40px; flex-shrink:0; }
@@ -103,7 +113,9 @@
     <video id="video" playsinline muted autoplay></video>
     <div id="frame"><i></i></div>
     <div class="scanline"></div>
-    <div id="hint">QRコードを画面に大きく映してください</div>
+    <div id="focusRing"></div>
+    <button id="torchBtn" title="ライト">💡</button>
+    <div id="hint">QRを画面に映してください（ぼやける時は画面をタップ）</div>
   </div>
   <div id="saved"><span>保持中：</span><b id="savedVal">（まだありません）</b></div>
   <div class="controls">
@@ -10233,20 +10245,22 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 <script>
 (function(){
   "use strict";
-  // 読み取りを簡単にするための設定
-  var CONFIRM_COUNT=2;   // 同じ値を2回読めたら確定（サッと読める）
+  var CONFIRM_COUNT=2;    // 同じ値を2回読めたら確定
   var COOLDOWN_MS=1500;
   var NG_VOLUME=1.0, OK_VOLUME=1.0;
 
-  var stream=null, raf=null, firstValue=null, phase=1, locked=false;
+  var stream=null, track=null, raf=null;
+  var firstValue=null, phase=1, locked=false;
   var candidate=null, candCount=0, audioCtx=null;
+  var frameNo=0, torchOn=false;
   function $(id){return document.getElementById(id);}
-  var video=$("video"), canvas=document.createElement("canvas");
-  var ctx=canvas.getContext("2d",{willReadFrequently:true});
+  var video=$("video");
+  // 解析用キャンバス（フル＝広く探す / 中央＝細かく見る）
+  var fullC=document.createElement("canvas"), fullX=fullC.getContext("2d",{willReadFrequently:true});
+  var midC=document.createElement("canvas"),  midX=midC.getContext("2d",{willReadFrequently:true});
 
   function speak(text,vol){
-    try{
-      if(!("speechSynthesis" in window)) return;
+    try{ if(!("speechSynthesis" in window)) return;
       window.speechSynthesis.cancel();
       var u=new SpeechSynthesisUtterance(text);
       u.lang="ja-JP"; u.volume=vol; u.rate=1.0; u.pitch=1.0;
@@ -10256,8 +10270,7 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     }catch(e){}
   }
   function beep(freq,durMs,vol,type){
-    try{
-      if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    try{ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
       var o=audioCtx.createOscillator(), g=audioCtx.createGain();
       o.type=type||"square"; o.frequency.value=freq; g.gain.value=vol;
       o.connect(g); g.connect(audioCtx.destination);
@@ -10265,33 +10278,111 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     }catch(e){}
   }
   function soundOK(){ beep(880,120,.5,"sine"); setTimeout(function(){beep(1320,160,.5,"sine");},130); speak("照合オーケー",OK_VOLUME); }
-  function soundNG(){
-    beep(220,200,.9,"square");
-    setTimeout(function(){beep(220,200,.9,"square");},260);
-    setTimeout(function(){beep(180,300,.9,"square");},520);
-    speak("照合エヌジー。やり直してください。",NG_VOLUME);
-  }
+  function soundNG(){ beep(220,200,.9,"square"); setTimeout(function(){beep(220,200,.9,"square");},260);
+    setTimeout(function(){beep(180,300,.9,"square");},520); speak("照合エヌジー。やり直してください。",NG_VOLUME); }
 
+  // ===== カメラ起動（高解像度＋連続オートフォーカス優先） =====
   function startCamera(){
-    return navigator.mediaDevices.getUserMedia({
-      audio:false,
-      video:{ facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720} }
-    }).then(function(s){ stream=s; video.srcObject=s; return video.play(); }).then(function(){ loop(); });
+    var attempts=[
+      // 1) 連続オートフォーカス＋高解像度を要求
+      { audio:false, video:{ facingMode:{ideal:"environment"},
+          width:{ideal:1920}, height:{ideal:1080},
+          focusMode:"continuous", advanced:[{focusMode:"continuous"}] } },
+      // 2) 解像度だけ高めに
+      { audio:false, video:{ facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720} } },
+      // 3) 最低限
+      { audio:false, video:{ facingMode:"environment" } }
+    ];
+    function tryNext(i){
+      if(i>=attempts.length) return Promise.reject(new Error("getUserMedia失敗"));
+      return navigator.mediaDevices.getUserMedia(attempts[i])
+        .then(function(s){ return s; })
+        .catch(function(){ return tryNext(i+1); });
+    }
+    return tryNext(0).then(function(s){
+      stream=s; video.srcObject=s;
+      track=s.getVideoTracks()[0];
+      applyCameraTuning();
+      return video.play();
+    }).then(function(){ setupTorch(); loop(); });
   }
 
+  // カメラの細かい設定（フォーカス・トーチ対応の確認）
+  function applyCameraTuning(){
+    try{
+      if(!track || !track.getCapabilities) return;
+      var caps=track.getCapabilities();
+      var adv=[];
+      if(caps.focusMode && caps.focusMode.indexOf("continuous")>=0) adv.push({focusMode:"continuous"});
+      if(adv.length) track.applyConstraints({advanced:adv}).catch(function(){});
+    }catch(e){}
+  }
+
+  // タップでその場にピント合わせ（対応端末のみ）。非対応でも波紋だけ出す。
+  function tapFocus(x,y){
+    var ring=$("focusRing"); ring.style.left=x+"px"; ring.style.top=y+"px";
+    ring.classList.remove("go"); void ring.offsetWidth; ring.classList.add("go");
+    try{
+      if(track && track.getCapabilities){
+        var caps=track.getCapabilities();
+        if(caps.focusMode && caps.focusMode.indexOf("single-shot")>=0){
+          track.applyConstraints({advanced:[{focusMode:"single-shot"}]})
+            .then(function(){ setTimeout(applyCameraTuning,800); }).catch(function(){});
+        }
+      }
+    }catch(e){}
+  }
+
+  // トーチ（ライト）
+  function setupTorch(){
+    try{
+      if(track && track.getCapabilities && track.getCapabilities().torch){
+        $("torchBtn").style.display="flex";
+      }
+    }catch(e){}
+  }
+  function toggleTorch(){
+    try{
+      torchOn=!torchOn;
+      track.applyConstraints({advanced:[{torch:torchOn}]});
+      $("torchBtn").classList.toggle("on",torchOn);
+    }catch(e){}
+  }
+
+  // ===== 解析ループ（広く探す＋中央を細かく、を交互に） =====
   function loop(){
     raf=requestAnimationFrame(loop);
     if(locked) return;
     if(video.readyState!==video.HAVE_ENOUGH_DATA) return;
-    canvas.width=video.videoWidth; canvas.height=video.videoHeight;
-    if(!canvas.width||!canvas.height) return;
-    ctx.drawImage(video,0,0,canvas.width,canvas.height);
-    // 画面全体を読み取り対象に（枠に正確に合わせなくてOK）
-    var img;
-    try{ img=ctx.getImageData(0,0,canvas.width,canvas.height); }catch(e){ return; }
-    // まず通常、ダメなら反転も試す（白黒反転QRや照明条件に強くする）
-    var code=jsQR(img.data,img.width,img.height,{inversionAttempts:"attemptBoth"});
-    if(code&&code.data){
+    var vw=video.videoWidth, vh=video.videoHeight;
+    if(!vw||!vh) return;
+    frameNo++;
+
+    var code=null;
+
+    // (A) 全体をやや縮小して広く探す（毎フレーム）
+    var scale = vw>1000 ? 1000/vw : 1;   // 横1000px程度に抑えて軽く
+    var fw=Math.round(vw*scale), fh=Math.round(vh*scale);
+    fullC.width=fw; fullC.height=fh;
+    fullX.drawImage(video,0,0,fw,fh);
+    try{
+      var fimg=fullX.getImageData(0,0,fw,fh);
+      code=jsQR(fimg.data,fimg.width,fimg.height,{inversionAttempts:"attemptBoth"});
+    }catch(e){}
+
+    // (B) 見つからなければ中央を等倍で細かく見る（小さい・遠いQR対策）
+    if(!code){
+      var cropW=Math.round(vw*0.6), cropH=Math.round(vh*0.6);
+      var cx=Math.round((vw-cropW)/2), cy=Math.round((vh-cropH)/2);
+      midC.width=cropW; midC.height=cropH;
+      midX.drawImage(video, cx,cy,cropW,cropH, 0,0,cropW,cropH);
+      try{
+        var mimg=midX.getImageData(0,0,cropW,cropH);
+        code=jsQR(mimg.data,mimg.width,mimg.height,{inversionAttempts:"attemptBoth"});
+      }catch(e){}
+    }
+
+    if(code && code.data){
       var val=(""+code.data).trim();
       if(val===candidate){ candCount++; } else { candidate=val; candCount=1; }
       if(candCount>=CONFIRM_COUNT){ confirmRead(val); candidate=null; candCount=0; }
@@ -10323,9 +10414,17 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     $("savedVal").textContent="（まだありません）";
     $("step1").classList.add("active"); $("step1").classList.remove("done");
     $("step2").classList.remove("active");
-    $("hint").textContent="QRコードを画面に大きく映してください"; unlock();
+    $("hint").textContent="QRを画面に映してください（ぼやける時は画面をタップ）"; unlock();
   }
   function preview(v){ return v.length>24 ? v.slice(0,24)+"…" : v; }
+
+  // 画面タップでピント合わせ
+  $("scanArea").addEventListener("click",function(e){
+    if($("torchBtn").contains(e.target)) return;
+    var rect=this.getBoundingClientRect();
+    tapFocus(e.clientX-rect.left, e.clientY-rect.top);
+  });
+  $("torchBtn").addEventListener("click",function(e){ e.stopPropagation(); toggleTorch(); });
 
   $("startBtn").addEventListener("click",function(){
     try{ window.speechSynthesis.getVoices(); speak(" ",0); }catch(e){}
