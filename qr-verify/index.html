@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b1f3a">
+<title>QR照合アプリ</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<style>
+  :root{
+    --bg:#0b1f3a;
+    --panel:#13294a;
+    --line:#2a4a7a;
+    --txt:#eaf2ff;
+    --muted:#9fb6da;
+    --blue:#1565ff;
+    --blue-bright:#36a3ff;
+    --red:#e60023;
+    --red-bright:#ff3b3b;
+    --green-ok:#1565ff;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; height:100%;}
+  body{
+    background:var(--bg);
+    color:var(--txt);
+    font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+    overflow:hidden;
+    user-select:none;
+    -webkit-user-select:none;
+  }
+  #app{
+    display:flex;
+    flex-direction:column;
+    height:100dvh;
+    max-width:600px;
+    margin:0 auto;
+  }
+
+  /* ===== ヘッダー／ステップ表示 ===== */
+  header{
+    padding:14px 16px 10px;
+    background:var(--panel);
+    border-bottom:1px solid var(--line);
+  }
+  .title{font-size:18px; font-weight:800; letter-spacing:.04em; display:flex; align-items:center; gap:8px;}
+  .title small{font-size:11px; color:var(--muted); font-weight:600;}
+  .steps{display:flex; gap:8px; margin-top:12px;}
+  .step{
+    flex:1; text-align:center; padding:10px 4px; border-radius:12px;
+    background:#0e2546; border:2px solid var(--line);
+    transition:.25s; font-weight:700; font-size:13px;
+  }
+  .step .num{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:22px; height:22px; border-radius:50%;
+    background:var(--line); color:#fff; font-size:13px; margin-right:6px;
+  }
+  .step.active{ border-color:var(--blue-bright); background:#163464; box-shadow:0 0 0 2px rgba(54,163,255,.25) inset;}
+  .step.active .num{ background:var(--blue-bright);}
+  .step.done{ border-color:#2e7d32; background:#13351c;}
+  .step.done .num{ background:#43a047;}
+  .step.done .num::after{ content:"✓"; }
+  .step.done .num span{ display:none; }
+
+  /* ===== カメラ映像 ===== */
+  #scanArea{
+    position:relative; flex:1; min-height:0;
+    background:#000; display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+  }
+  #video{ width:100%; height:100%; object-fit:cover; }
+  #frame{
+    position:absolute; width:62%; aspect-ratio:1/1; max-width:300px;
+    border-radius:18px; pointer-events:none;
+    box-shadow:0 0 0 4000px rgba(0,0,0,.45);
+  }
+  #frame::before,#frame::after,
+  #frame i::before,#frame i::after{
+    content:""; position:absolute; width:34px; height:34px;
+    border:5px solid var(--blue-bright); border-radius:4px;
+  }
+  #frame::before{ top:-3px; left:-3px; border-right:0; border-bottom:0;}
+  #frame::after{ top:-3px; right:-3px; border-left:0; border-bottom:0;}
+  #frame i::before{ bottom:-3px; left:-3px; border-right:0; border-top:0;}
+  #frame i::after{ bottom:-3px; right:-3px; border-left:0; border-top:0;}
+  .scanline{
+    position:absolute; left:8%; right:8%; height:3px; top:10%;
+    background:linear-gradient(90deg,transparent,var(--blue-bright),transparent);
+    animation:scan 2s linear infinite; border-radius:2px;
+  }
+  @keyframes scan{0%{top:10%}50%{top:88%}100%{top:10%}}
+  #hint{
+    position:absolute; bottom:18px; left:0; right:0; text-align:center;
+    font-size:15px; font-weight:700; text-shadow:0 1px 4px #000;
+    padding:0 20px;
+  }
+  .lock-badge{
+    position:absolute; top:14px; left:50%; transform:translateX(-50%);
+    background:rgba(54,163,255,.92); color:#fff; padding:6px 14px;
+    border-radius:20px; font-size:13px; font-weight:800; display:none;
+  }
+
+  /* ===== 保持中の値 ===== */
+  #saved{
+    background:var(--panel); border-top:1px solid var(--line);
+    padding:10px 16px; font-size:13px; color:var(--muted); display:flex; gap:8px; align-items:center;
+    min-height:42px;
+  }
+  #saved b{color:var(--txt);}
+  #savedVal{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60%; }
+
+  /* ===== 操作ボタン ===== */
+  .controls{ padding:12px 16px calc(12px + env(safe-area-inset-bottom)); background:var(--panel); display:flex; gap:10px;}
+  button{
+    flex:1; border:0; border-radius:14px; padding:16px 10px;
+    font-size:17px; font-weight:800; color:#fff; cursor:pointer;
+    transition:transform .08s, opacity .2s;
+  }
+  button:active{ transform:scale(.97); }
+  button:disabled{ opacity:.4; }
+  .btn-primary{ background:var(--blue);}
+  .btn-reset{ background:#3a5070;}
+
+  /* ===== 結果オーバーレイ ===== */
+  #result{
+    position:fixed; inset:0; z-index:50; display:none;
+    flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:24px;
+  }
+  #result.show{ display:flex; }
+  #result.ok{ background:radial-gradient(circle at 50% 40%, #1f7bff, #0a2e7a); }
+  #result.ng{ background:radial-gradient(circle at 50% 40%, #ff2424, #8a0010); animation:ngblink .5s steps(1,end) infinite; }
+  @keyframes ngblink{ 50%{ background:#3a0008; } }
+  .rmark{ font-size:42vw; line-height:1; font-weight:900; }
+  #result.ok .rmark{ color:#fff; text-shadow:0 0 40px rgba(255,255,255,.6); }
+  #result.ng .rmark{ color:#fff; animation:shake .25s infinite; }
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-10px)}75%{transform:translateX(10px)}}
+  .rtext{ font-size:23vw; font-weight:900; letter-spacing:.05em; margin-top:-2vh;}
+  #result.ok .rtext{ color:#fff; }
+  #result.ng .rtext{ color:#fff; }
+  .rsub{ font-size:5.5vw; font-weight:800; margin-top:14px; }
+  .rclose{
+    margin-top:34px; background:rgba(255,255,255,.95); color:#111;
+    border-radius:16px; padding:18px 44px; font-size:20px; font-weight:900; border:0;
+    cursor:pointer;
+  }
+  .rclose:active{ transform:scale(.96); }
+
+  /* ===== スタート画面 ===== */
+  #start{
+    position:fixed; inset:0; z-index:60; background:var(--bg);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:30px;
+  }
+  #start h1{ font-size:30px; margin:0 0 4px; letter-spacing:.05em;}
+  #start p{ color:var(--muted); font-size:15px; line-height:1.8; margin:8px 0 30px; max-width:340px;}
+  #start .ico{ font-size:64px; margin-bottom:6px;}
+  #startBtn{ max-width:300px; background:var(--blue); font-size:20px; padding:20px 30px;}
+  #err{ color:var(--red-bright); margin-top:20px; font-size:14px; max-width:340px; line-height:1.6;}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="title">🔍 QRコード照合 <small>2回読取チェック</small></div>
+    <div class="steps">
+      <div class="step active" id="step1"><span class="num"><span>1</span></span>1回目を読取</div>
+      <div class="step" id="step2"><span class="num"><span>2</span></span>2回目を読取</div>
+    </div>
+  </header>
+
+  <div id="scanArea">
+    <video id="video" playsinline muted autoplay></video>
+    <div id="frame"><i></i></div>
+    <div class="scanline"></div>
+    <div class="lock-badge" id="lockBadge">⏸ 確定処理中…</div>
+    <div id="hint">QRコードを枠内に合わせてください</div>
+  </div>
+
+  <div id="saved">
+    <span>保持中：</span><b id="savedVal">（まだありません）</b>
+  </div>
+
+  <div class="controls">
+    <button class="btn-reset" id="resetBtn">最初からやり直す</button>
+  </div>
+</div>
+
+<!-- 結果表示 -->
+<div id="result">
+  <div class="rmark" id="rmark">〇</div>
+  <div class="rtext" id="rtext">OK</div>
+  <div class="rsub" id="rsub"></div>
+  <button class="rclose" id="rclose">次の照合へ</button>
+</div>
+
+<!-- スタート画面（iOS対策：ユーザー操作起点でカメラ＆音声を有効化） -->
+<div id="start">
+  <div class="ico">📷</div>
+  <h1>QR照合アプリ</h1>
+  <p>同じQRコードを2回読み取り、一致するか確認します。<br>下のボタンを押すとカメラと音声が有効になります。</p>
+  <button id="startBtn">▶ 開始する</button>
+  <div id="err"></div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ===== 設定（誤動作防止チューニング） =====
+  const CONFIRM_COUNT   = 3;     // 同じ値を連続で何フレーム読めたら確定するか
+  const COOLDOWN_MS     = 1500;  // 1回確定後の読取休止時間（連続誤検出防止）
+  const NG_VOLUME       = 1.0;   // NG音声の音量(0〜1)
+  const OK_VOLUME       = 1.0;
+
+  // ===== 状態 =====
+  let stream=null, raf=null;
+  let firstValue=null;           // 1回目に確定した値
+  let phase=1;                   // 1=1回目待ち, 2=2回目待ち
+  let locked=false;              // クールダウン中
+  let candidate=null, candCount=0; // 確定用カウンタ
+  let voiceReady=false;
+
+  const $=id=>document.getElementById(id);
+  const video=$("video"), canvas=document.createElement("canvas"), ctx=canvas.getContext("2d",{willReadFrequently:true});
+
+  // ===== 音声（Web Speech API） =====
+  function speak(text, vol){
+    try{
+      window.speechSynthesis.cancel();
+      const u=new SpeechSynthesisUtterance(text);
+      u.lang="ja-JP"; u.volume=vol; u.rate=1.0; u.pitch=1.0;
+      // 日本語ボイスがあれば優先
+      const jp=window.speechSynthesis.getVoices().find(v=>/ja|Japanese/i.test(v.lang+v.name));
+      if(jp) u.voice=jp;
+      window.speechSynthesis.speak(u);
+    }catch(e){}
+  }
+  // ビープ音（音声合成が出ない端末でも確実に鳴らす保険）＋大音量NG用
+  let audioCtx=null;
+  function beep(freq, durMs, vol, type){
+    try{
+      if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      const o=audioCtx.createOscillator(), g=audioCtx.createGain();
+      o.type=type||"square"; o.frequency.value=freq;
+      g.gain.value=vol;
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start();
+      o.stop(audioCtx.currentTime+durMs/1000);
+    }catch(e){}
+  }
+  function soundOK(){
+    beep(880,120,.5,"sine"); setTimeout(()=>beep(1320,160,.5,"sine"),130);
+    speak("照合オーケー", OK_VOLUME);
+  }
+  function soundNG(){
+    // 強い警告ビープを3連発（大音量感）
+    beep(220,200,.9,"square");
+    setTimeout(()=>beep(220,200,.9,"square"),260);
+    setTimeout(()=>beep(180,300,.9,"square"),520);
+    speak("照合エヌジー。やり直してください。", NG_VOLUME);
+  }
+
+  // ===== カメラ開始 =====
+  async function startCamera(){
+    const constraints={
+      audio:false,
+      video:{ facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720} }
+    };
+    stream=await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject=stream;
+    await video.play();
+    loop();
+  }
+
+  // ===== メインループ =====
+  function loop(){
+    raf=requestAnimationFrame(loop);
+    if(locked) return;
+    if(video.readyState!==video.HAVE_ENOUGH_DATA) return;
+
+    canvas.width=video.videoWidth; canvas.height=video.videoHeight;
+    ctx.drawImage(video,0,0,canvas.width,canvas.height);
+
+    // 中央60%だけ解析（枠外の誤読を抑制＝誤動作防止）
+    const cw=canvas.width, ch=canvas.height;
+    const sx=Math.floor(cw*0.18), sy=Math.floor(ch*0.18);
+    const sw=Math.floor(cw*0.64), sh=Math.floor(ch*0.64);
+    let img;
+    try{ img=ctx.getImageData(sx,sy,sw,sh); }catch(e){ return; }
+
+    const code=jsQR(img.data, img.width, img.height, {inversionAttempts:"dontInvert"});
+    if(code && code.data){
+      const val=code.data.trim();
+      if(val===candidate){ candCount++; }
+      else { candidate=val; candCount=1; }
+      // 同じ値を連続CONFIRM_COUNT回読めたら確定（手ブレ・一瞬の誤読を排除）
+      if(candCount>=CONFIRM_COUNT){
+        confirmRead(val);
+        candidate=null; candCount=0;
+      }
+    }else{
+      // 読めなければ徐々にリセット
+      if(candCount>0) candCount--;
+    }
+  }
+
+  // ===== 1回の読取確定 =====
+  function confirmRead(val){
+    locked=true;
+    $("lockBadge").style.display="block";
+
+    if(phase===1){
+      firstValue=val;
+      $("savedVal").textContent=preview(val);
+      $("step1").classList.remove("active"); $("step1").classList.add("done");
+      $("step2").classList.add("active");
+      $("hint").textContent="✅ 1回目を記録しました。同じQRをもう一度読取";
+      phase=2;
+      beep(1000,120,.4,"sine"); // 1回目確定の軽い通知音
+      // クールダウン後に再開
+      setTimeout(unlock, COOLDOWN_MS);
+    }else{
+      // 2回目 → 判定
+      const match=(val===firstValue);
+      showResult(match);
+    }
+  }
+
+  function unlock(){
+    locked=false;
+    $("lockBadge").style.display="none";
+  }
+
+  // ===== 結果表示 =====
+  function showResult(match){
+    const r=$("result");
+    r.classList.remove("ok","ng");
+    if(match){
+      r.classList.add("ok","show");
+      $("rmark").textContent="〇";
+      $("rtext").textContent="OK";
+      $("rsub").textContent="照合に成功しました";
+      soundOK();
+    }else{
+      r.classList.add("ng","show");
+      $("rmark").textContent="×";
+      $("rtext").textContent="NG";
+      $("rsub").textContent="照合できませんでした。やり直してください";
+      soundNG();
+    }
+  }
+
+  function closeResult(){
+    try{ window.speechSynthesis.cancel(); }catch(e){}
+    $("result").classList.remove("show","ok","ng");
+    resetAll();
+  }
+
+  // ===== リセット =====
+  function resetAll(){
+    firstValue=null; phase=1; candidate=null; candCount=0;
+    $("savedVal").textContent="（まだありません）";
+    $("step1").classList.add("active"); $("step1").classList.remove("done");
+    $("step2").classList.remove("active");
+    $("hint").textContent="QRコードを枠内に合わせてください";
+    unlock();
+  }
+
+  function preview(v){
+    return v.length>20 ? v.slice(0,20)+"…" : v;
+  }
+
+  // ===== 起動 =====
+  $("startBtn").addEventListener("click", async ()=>{
+    // iOS：ユーザー操作のこのタイミングで音声を一度起こす
+    try{
+      window.speechSynthesis.getVoices();
+      speak(" ", 0); // 無音で初期化
+      voiceReady=true;
+    }catch(e){}
+    try{
+      if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      if(audioCtx.state==="suspended") audioCtx.resume();
+    }catch(e){}
+
+    try{
+      await startCamera();
+      $("start").style.display="none";
+    }catch(e){
+      $("err").textContent="カメラを起動できませんでした。ブラウザのカメラ許可をオンにし、httpsまたはローカルで開いてください。（"+e.name+"）";
+    }
+  });
+
+  $("resetBtn").addEventListener("click", resetAll);
+  $("rclose").addEventListener("click", closeResult);
+
+  // 一部端末でvoicesが遅れて読み込まれる対策
+  if("speechSynthesis" in window){
+    window.speechSynthesis.onvoiceschanged=()=>window.speechSynthesis.getVoices();
+  }
+})();
+</script>
+</body>
+</html>
