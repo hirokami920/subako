@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0b1f3a">
 <title>QR照合アプリ</title>
@@ -11,120 +11,122 @@
     --bg:#0b1f3a; --panel:#13294a; --line:#2a4a7a; --txt:#eaf2ff; --muted:#9fb6da;
     --blue:#1565ff; --blue-bright:#36a3ff; --red:#e60023; --red-bright:#ff3b3b;
   }
-  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0; height:100%;}
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent; max-width:100%;}
+  html,body{margin:0; padding:0; width:100%; height:100%; overflow:hidden;}
   body{ background:var(--bg); color:var(--txt);
     font-family:-apple-system,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
-    overflow:hidden; user-select:none; -webkit-user-select:none; }
-  #app{ display:flex; flex-direction:column; height:100dvh; max-width:600px; margin:0 auto; }
-  header{ padding:14px 16px 10px; background:var(--panel); border-bottom:1px solid var(--line); }
-  .title{font-size:18px; font-weight:800; letter-spacing:.04em; display:flex; align-items:center; gap:8px;}
+    user-select:none; -webkit-user-select:none; }
+  #app{ display:flex; flex-direction:column; height:100dvh; width:100%; max-width:600px; margin:0 auto; overflow:hidden; }
+
+  header{ padding:12px 14px 10px; background:var(--panel); border-bottom:1px solid var(--line); flex-shrink:0; }
+  .title{font-size:17px; font-weight:800; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
   .title small{font-size:11px; color:var(--muted); font-weight:600;}
-  .steps{display:flex; gap:8px; margin-top:12px;}
-  .step{ flex:1; text-align:center; padding:10px 4px; border-radius:12px;
-    background:#0e2546; border:2px solid var(--line); transition:.25s; font-weight:700; font-size:13px; }
-  .step .num{ display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px;
-    border-radius:50%; background:var(--line); color:#fff; font-size:13px; margin-right:6px; }
+  .steps{display:flex; gap:8px; margin-top:10px;}
+  .step{ flex:1; min-width:0; text-align:center; padding:9px 2px; border-radius:12px;
+    background:#0e2546; border:2px solid var(--line); transition:.25s; font-weight:700; font-size:12px; }
+  .step .num{ display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px;
+    border-radius:50%; background:var(--line); color:#fff; font-size:12px; margin-right:5px; }
   .step.active{ border-color:var(--blue-bright); background:#163464; box-shadow:0 0 0 2px rgba(54,163,255,.25) inset;}
   .step.active .num{ background:var(--blue-bright);}
   .step.done{ border-color:#2e7d32; background:#13351c;}
   .step.done .num{ background:#43a047;}
-  .step.done .num::after{ content:"\2713"; }
+  .step.done .num::after{ content:"✓"; }
   .step.done .num span{ display:none; }
-  #scanArea{ position:relative; flex:1; min-height:0; background:#000;
+
+  #scanArea{ position:relative; flex:1; min-height:0; width:100%; background:#000;
     display:flex; align-items:center; justify-content:center; overflow:hidden; }
   #video{ width:100%; height:100%; object-fit:cover; }
-  #frame{ position:absolute; width:62%; aspect-ratio:1/1; max-width:300px; border-radius:18px;
-    pointer-events:none; box-shadow:0 0 0 4000px rgba(0,0,0,.45); }
+  #frame{ position:absolute; width:78%; aspect-ratio:1/1; max-width:340px; border-radius:18px;
+    pointer-events:none; box-shadow:0 0 0 4000px rgba(0,0,0,.25); }
   #frame::before,#frame::after,#frame i::before,#frame i::after{
-    content:""; position:absolute; width:34px; height:34px;
+    content:""; position:absolute; width:32px; height:32px;
     border:5px solid var(--blue-bright); border-radius:4px; }
   #frame::before{ top:-3px; left:-3px; border-right:0; border-bottom:0;}
   #frame::after{ top:-3px; right:-3px; border-left:0; border-bottom:0;}
   #frame i::before{ bottom:-3px; left:-3px; border-right:0; border-top:0;}
   #frame i::after{ bottom:-3px; right:-3px; border-left:0; border-top:0;}
-  .scanline{ position:absolute; left:8%; right:8%; height:3px; top:10%;
+  .scanline{ position:absolute; left:12%; right:12%; height:3px; top:12%;
     background:linear-gradient(90deg,transparent,var(--blue-bright),transparent);
     animation:scan 2s linear infinite; border-radius:2px; }
-  @keyframes scan{0%{top:10%}50%{top:88%}100%{top:10%}}
-  #hint{ position:absolute; bottom:18px; left:0; right:0; text-align:center;
-    font-size:15px; font-weight:700; text-shadow:0 1px 4px #000; padding:0 20px; }
-  .lock-badge{ position:absolute; top:14px; left:50%; transform:translateX(-50%);
-    background:rgba(54,163,255,.92); color:#fff; padding:6px 14px; border-radius:20px;
-    font-size:13px; font-weight:800; display:none; }
-  #saved{ background:var(--panel); border-top:1px solid var(--line); padding:10px 16px;
-    font-size:13px; color:var(--muted); display:flex; gap:8px; align-items:center; min-height:42px; }
+  @keyframes scan{0%{top:12%}50%{top:86%}100%{top:12%}}
+  #hint{ position:absolute; bottom:16px; left:0; right:0; text-align:center;
+    font-size:14px; font-weight:700; text-shadow:0 1px 4px #000; padding:0 16px; }
+
+  #saved{ background:var(--panel); border-top:1px solid var(--line); padding:9px 14px;
+    font-size:12px; color:var(--muted); display:flex; gap:6px; align-items:center; min-height:40px; flex-shrink:0; }
   #saved b{color:var(--txt);}
-  #savedVal{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60%; }
-  .controls{ padding:12px 16px calc(12px + env(safe-area-inset-bottom)); background:var(--panel);
-    display:flex; gap:10px;}
-  button{ flex:1; border:0; border-radius:14px; padding:16px 10px; font-size:17px; font-weight:800;
+  #savedVal{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
+
+  .controls{ padding:10px 14px calc(10px + env(safe-area-inset-bottom)); background:var(--panel);
+    display:flex; gap:10px; flex-shrink:0; }
+  button{ flex:1; min-width:0; border:0; border-radius:14px; padding:15px 8px; font-size:16px; font-weight:800;
     color:#fff; cursor:pointer; transition:transform .08s, opacity .2s; }
   button:active{ transform:scale(.97); }
-  button:disabled{ opacity:.4; }
   .btn-reset{ background:#3a5070;}
+
   #result{ position:fixed; inset:0; z-index:50; display:none; flex-direction:column;
-    align-items:center; justify-content:center; text-align:center; padding:24px; }
+    align-items:center; justify-content:center; text-align:center; padding:20px; }
   #result.show{ display:flex; }
   #result.ok{ background:radial-gradient(circle at 50% 40%, #1f7bff, #0a2e7a); }
   #result.ng{ background:radial-gradient(circle at 50% 40%, #ff2424, #8a0010);
     animation:ngblink .5s steps(1,end) infinite; }
   @keyframes ngblink{ 50%{ background:#3a0008; } }
-  .rmark{ font-size:42vw; line-height:1; font-weight:900; color:#fff; }
+  .rmark{ font-size:38vw; line-height:1; font-weight:900; color:#fff; }
   #result.ok .rmark{ text-shadow:0 0 40px rgba(255,255,255,.6); }
   #result.ng .rmark{ animation:shake .25s infinite; }
-  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-10px)}75%{transform:translateX(10px)}}
-  .rtext{ font-size:23vw; font-weight:900; letter-spacing:.05em; margin-top:-2vh; color:#fff;}
-  .rsub{ font-size:5.5vw; font-weight:800; margin-top:14px; }
-  .rclose{ margin-top:34px; background:rgba(255,255,255,.95); color:#111; border-radius:16px;
-    padding:18px 44px; font-size:20px; font-weight:900; border:0; cursor:pointer; }
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-9px)}75%{transform:translateX(9px)}}
+  .rtext{ font-size:21vw; font-weight:900; letter-spacing:.05em; margin-top:-1vh; color:#fff;}
+  .rsub{ font-size:5vw; font-weight:800; margin-top:12px; padding:0 10px; }
+  .rclose{ margin-top:30px; background:rgba(255,255,255,.95); color:#111; border-radius:16px;
+    padding:17px 40px; font-size:19px; font-weight:900; border:0; cursor:pointer; flex:none; }
   .rclose:active{ transform:scale(.96); }
+
   #start{ position:fixed; inset:0; z-index:60; background:var(--bg); display:flex;
-    flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:30px; }
-  #start h1{ font-size:30px; margin:0 0 4px; letter-spacing:.05em;}
-  #start p{ color:var(--muted); font-size:15px; line-height:1.8; margin:8px 0 30px; max-width:340px;}
-  #start .ico{ font-size:64px; margin-bottom:6px;}
-  #startBtn{ max-width:300px; background:var(--blue); font-size:20px; padding:20px 30px;}
-  #err{ color:var(--red-bright); margin-top:20px; font-size:14px; max-width:340px; line-height:1.6;}
+    flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:26px; }
+  #start h1{ font-size:27px; margin:0 0 4px;}
+  #start p{ color:var(--muted); font-size:15px; line-height:1.8; margin:8px 0 28px; max-width:330px;}
+  #start .ico{ font-size:60px; margin-bottom:6px;}
+  #startBtn{ width:100%; max-width:300px; background:var(--blue); font-size:20px; padding:19px 20px; flex:none;}
+  #err{ color:var(--red-bright); margin-top:18px; font-size:14px; max-width:330px; line-height:1.6;}
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <div class="title">QR\u30b3\u30fc\u30c9\u7167\u5408 <small>2\u56de\u8aad\u53d6\u30c1\u30a7\u30c3\u30af</small></div>
+    <div class="title">📷 QRコード照合 <small>2回読取チェック</small></div>
     <div class="steps">
-      <div class="step active" id="step1"><span class="num"><span>1</span></span>1\u56de\u76ee\u3092\u8aad\u53d6</div>
-      <div class="step" id="step2"><span class="num"><span>2</span></span>2\u56de\u76ee\u3092\u8aad\u53d6</div>
+      <div class="step active" id="step1"><span class="num"><span>1</span></span>1回目を読取</div>
+      <div class="step" id="step2"><span class="num"><span>2</span></span>2回目を読取</div>
     </div>
   </header>
   <div id="scanArea">
     <video id="video" playsinline muted autoplay></video>
     <div id="frame"><i></i></div>
     <div class="scanline"></div>
-    <div class="lock-badge" id="lockBadge">\u78ba\u5b9a\u51e6\u7406\u4e2d\u2026</div>
-    <div id="hint">QR\u30b3\u30fc\u30c9\u3092\u67a0\u5185\u306b\u5408\u308f\u305b\u3066\u304f\u3060\u3055\u3044</div>
+    <div id="hint">QRコードを画面に大きく映してください</div>
   </div>
-  <div id="saved"><span>\u4fdd\u6301\u4e2d\uff1a</span><b id="savedVal">\uff08\u307e\u3060\u3042\u308a\u307e\u305b\u3093\uff09</b></div>
+  <div id="saved"><span>保持中：</span><b id="savedVal">（まだありません）</b></div>
   <div class="controls">
-    <button class="btn-reset" id="resetBtn">\u6700\u521d\u304b\u3089\u3084\u308a\u76f4\u3059</button>
+    <button class="btn-reset" id="resetBtn">最初からやり直す</button>
   </div>
 </div>
+
 <div id="result">
-  <div class="rmark" id="rmark">\u3007</div>
+  <div class="rmark" id="rmark">〇</div>
   <div class="rtext" id="rtext">OK</div>
   <div class="rsub" id="rsub"></div>
-  <button class="rclose" id="rclose">\u6b21\u306e\u7167\u5408\u3078</button>
+  <button class="rclose" id="rclose">次の照合へ</button>
 </div>
+
 <div id="start">
-  <div class="ico">\U0001F4F7</div>
-  <h1>QR\u7167\u5408\u30a2\u30d7\u30ea</h1>
-  <p>\u540c\u3058QR\u30b3\u30fc\u30c9\u30922\u56de\u8aad\u307f\u53d6\u308a\u3001\u4e00\u81f4\u3059\u308b\u304b\u78ba\u8a8d\u3057\u307e\u3059\u3002<br>\u4e0b\u306e\u30dc\u30bf\u30f3\u3092\u62bc\u3059\u3068\u30ab\u30e1\u30e9\u3068\u97f3\u58f0\u304c\u6709\u52b9\u306b\u306a\u308a\u307e\u3059\u3002</p>
-  <button id="startBtn">\u25b6 \u958b\u59cb\u3059\u308b</button>
+  <div class="ico">📷</div>
+  <h1>QR照合アプリ</h1>
+  <p>同じQRコードを2回読み取り、一致するか確認します。下のボタンを押すとカメラと音声が有効になります。</p>
+  <button id="startBtn">▶ 開始する</button>
   <div id="err"></div>
 </div>
 
 <script>
-/* ===== jsQR (\u57cb\u3081\u8fbc\u307f\u6e08\u307f / \u5916\u90e8\u8aad\u307f\u8fbc\u307f\u4e0d\u8981) ===== */
 (function webpackUniversalModuleDefinition(root, factory) {
 	if(typeof exports === 'object' && typeof module === 'object')
 		module.exports = factory();
@@ -10227,11 +10229,15 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
 /***/ })
 /******/ ])["default"];
 });
-
-/* ===== \u30a2\u30d7\u30ea\u672c\u4f53 ===== */
+</script>
+<script>
 (function(){
   "use strict";
-  var CONFIRM_COUNT=3, COOLDOWN_MS=1500, NG_VOLUME=1.0, OK_VOLUME=1.0;
+  // 読み取りを簡単にするための設定
+  var CONFIRM_COUNT=2;   // 同じ値を2回読めたら確定（サッと読める）
+  var COOLDOWN_MS=1500;
+  var NG_VOLUME=1.0, OK_VOLUME=1.0;
+
   var stream=null, raf=null, firstValue=null, phase=1, locked=false;
   var candidate=null, candCount=0, audioCtx=null;
   function $(id){return document.getElementById(id);}
@@ -10258,19 +10264,21 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
       o.start(); o.stop(audioCtx.currentTime+durMs/1000);
     }catch(e){}
   }
-  function soundOK(){ beep(880,120,.5,"sine"); setTimeout(function(){beep(1320,160,.5,"sine");},130); speak("\u7167\u5408\u30aa\u30fc\u30b1\u30fc",OK_VOLUME); }
+  function soundOK(){ beep(880,120,.5,"sine"); setTimeout(function(){beep(1320,160,.5,"sine");},130); speak("照合オーケー",OK_VOLUME); }
   function soundNG(){
     beep(220,200,.9,"square");
     setTimeout(function(){beep(220,200,.9,"square");},260);
     setTimeout(function(){beep(180,300,.9,"square");},520);
-    speak("\u7167\u5408\u30a8\u30cc\u30b8\u30fc\u3002\u3084\u308a\u76f4\u3057\u3066\u304f\u3060\u3055\u3044\u3002",NG_VOLUME);
+    speak("照合エヌジー。やり直してください。",NG_VOLUME);
   }
+
   function startCamera(){
     return navigator.mediaDevices.getUserMedia({
       audio:false,
       video:{ facingMode:{ideal:"environment"}, width:{ideal:1280}, height:{ideal:720} }
     }).then(function(s){ stream=s; video.srcObject=s; return video.play(); }).then(function(){ loop(); });
   }
+
   function loop(){
     raf=requestAnimationFrame(loop);
     if(locked) return;
@@ -10278,59 +10286,60 @@ function findAlignmentPattern(matrix, alignmentPatternQuads, topRight, topLeft, 
     canvas.width=video.videoWidth; canvas.height=video.videoHeight;
     if(!canvas.width||!canvas.height) return;
     ctx.drawImage(video,0,0,canvas.width,canvas.height);
-    var cw=canvas.width, ch=canvas.height;
-    var sx=Math.floor(cw*0.18), sy=Math.floor(ch*0.18);
-    var sw=Math.floor(cw*0.64), sh=Math.floor(ch*0.64);
+    // 画面全体を読み取り対象に（枠に正確に合わせなくてOK）
     var img;
-    try{ img=ctx.getImageData(sx,sy,sw,sh); }catch(e){ return; }
-    var code=jsQR(img.data,img.width,img.height,{inversionAttempts:"dontInvert"});
+    try{ img=ctx.getImageData(0,0,canvas.width,canvas.height); }catch(e){ return; }
+    // まず通常、ダメなら反転も試す（白黒反転QRや照明条件に強くする）
+    var code=jsQR(img.data,img.width,img.height,{inversionAttempts:"attemptBoth"});
     if(code&&code.data){
       var val=(""+code.data).trim();
       if(val===candidate){ candCount++; } else { candidate=val; candCount=1; }
       if(candCount>=CONFIRM_COUNT){ confirmRead(val); candidate=null; candCount=0; }
     }else{ if(candCount>0) candCount--; }
   }
+
   function confirmRead(val){
-    locked=true; $("lockBadge").style.display="block";
+    locked=true;
     if(phase===1){
       firstValue=val; $("savedVal").textContent=preview(val);
       $("step1").classList.remove("active"); $("step1").classList.add("done");
       $("step2").classList.add("active");
-      $("hint").textContent="1\u56de\u76ee\u3092\u8a18\u9332\u3057\u307e\u3057\u305f\u3002\u540c\u3058QR\u3092\u3082\u3046\u4e00\u5ea6\u8aad\u53d6";
+      $("hint").textContent="1回目を記録しました。同じQRをもう一度かざしてください";
       phase=2; beep(1000,120,.4,"sine"); setTimeout(unlock,COOLDOWN_MS);
     }else{ showResult(val===firstValue); }
   }
-  function unlock(){ locked=false; $("lockBadge").style.display="none"; }
+  function unlock(){ locked=false; }
+
   function showResult(match){
     var r=$("result"); r.classList.remove("ok","ng");
-    if(match){ r.classList.add("ok","show"); $("rmark").textContent="\u3007"; $("rtext").textContent="OK";
-      $("rsub").textContent="\u7167\u5408\u306b\u6210\u529f\u3057\u307e\u3057\u305f"; soundOK();
-    }else{ r.classList.add("ng","show"); $("rmark").textContent="\u00d7"; $("rtext").textContent="NG";
-      $("rsub").textContent="\u7167\u5408\u3067\u304d\u307e\u305b\u3093\u3067\u3057\u305f\u3002\u3084\u308a\u76f4\u3057\u3066\u304f\u3060\u3055\u3044"; soundNG(); }
+    if(match){ r.classList.add("ok","show"); $("rmark").textContent="〇"; $("rtext").textContent="OK";
+      $("rsub").textContent="照合に成功しました"; soundOK();
+    }else{ r.classList.add("ng","show"); $("rmark").textContent="×"; $("rtext").textContent="NG";
+      $("rsub").textContent="照合できませんでした。やり直してください"; soundNG(); }
   }
   function closeResult(){ try{window.speechSynthesis.cancel();}catch(e){} $("result").classList.remove("show","ok","ng"); resetAll(); }
   function resetAll(){
     firstValue=null; phase=1; candidate=null; candCount=0;
-    $("savedVal").textContent="\uff08\u307e\u3060\u3042\u308a\u307e\u305b\u3093\uff09";
+    $("savedVal").textContent="（まだありません）";
     $("step1").classList.add("active"); $("step1").classList.remove("done");
     $("step2").classList.remove("active");
-    $("hint").textContent="QR\u30b3\u30fc\u30c9\u3092\u67a0\u5185\u306b\u5408\u308f\u305b\u3066\u304f\u3060\u3055\u3044"; unlock();
+    $("hint").textContent="QRコードを画面に大きく映してください"; unlock();
   }
-  function preview(v){ return v.length>20 ? v.slice(0,20)+"\u2026" : v; }
+  function preview(v){ return v.length>24 ? v.slice(0,24)+"…" : v; }
 
   $("startBtn").addEventListener("click",function(){
     try{ window.speechSynthesis.getVoices(); speak(" ",0); }catch(e){}
     try{ if(!audioCtx) audioCtx=new (window.AudioContext||window.webkitAudioContext)();
       if(audioCtx.state==="suspended") audioCtx.resume(); }catch(e){}
-    if(typeof jsQR!=="function"){ $("err").textContent="\u8aad\u53d6\u30e9\u30a4\u30d6\u30e9\u30ea\u306e\u521d\u671f\u5316\u306b\u5931\u6557\u3057\u307e\u3057\u305f\u3002\u30da\u30fc\u30b8\u3092\u518d\u8aad\u307f\u8fbc\u307f\u3057\u3066\u304f\u3060\u3055\u3044\u3002"; return; }
+    if(typeof jsQR!=="function"){ $("err").textContent="読取機能の初期化に失敗しました。ページを再読み込みしてください。"; return; }
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-      $("err").textContent="\u3053\u306e\u30d6\u30e9\u30a6\u30b6\u306f\u30ab\u30e1\u30e9\u6a5f\u80fd\u306b\u5bfe\u5fdc\u3057\u3066\u3044\u307e\u305b\u3093\u3002Chrome\u3067\u958b\u3044\u3066\u304f\u3060\u3055\u3044\u3002"; return; }
+      $("err").textContent="このブラウザはカメラに対応していません。Chromeで開いてください。"; return; }
     startCamera().then(function(){ $("start").style.display="none"; })
     .catch(function(e){
-      var msg="\u30ab\u30e1\u30e9\u3092\u8d77\u52d5\u3067\u304d\u307e\u305b\u3093\u3067\u3057\u305f\u3002";
-      if(e&&e.name==="NotAllowedError") msg+="\u30ab\u30e1\u30e9\u306e\u4f7f\u7528\u304c\u8a31\u53ef\u3055\u308c\u3066\u3044\u307e\u305b\u3093\u3002\u30a2\u30c9\u30ec\u30b9\u30d0\u30fc\u5de6\u306e\u9375\u30de\u30fc\u30af\u304b\u3089\u30ab\u30e1\u30e9\u3092\u8a31\u53ef\u306b\u3057\u3066\u518d\u8aad\u307f\u8fbc\u307f\u3057\u3066\u304f\u3060\u3055\u3044\u3002";
-      else if(e&&e.name==="NotFoundError") msg+="\u30ab\u30e1\u30e9\u304c\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3002";
-      else if(e&&e.name==="NotReadableError") msg+="\u4ed6\u306e\u30a2\u30d7\u30ea\u304c\u30ab\u30e1\u30e9\u3092\u4f7f\u7528\u4e2d\u306e\u53ef\u80fd\u6027\u304c\u3042\u308a\u307e\u3059\u3002";
+      var msg="カメラを起動できませんでした。";
+      if(e&&e.name==="NotAllowedError") msg+="カメラの使用が許可されていません。アドレスバー左の鍵マークから許可して再読み込みしてください。";
+      else if(e&&e.name==="NotFoundError") msg+="カメラが見つかりません。";
+      else if(e&&e.name==="NotReadableError") msg+="他のアプリがカメラを使用中の可能性があります。";
       else msg+="("+(e&&e.name?e.name:e)+")";
       $("err").textContent=msg;
     });
