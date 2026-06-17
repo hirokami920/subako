@@ -43,7 +43,7 @@
   #video { width: 100%; height: 100%; object-fit: cover; display: block; }
   .scan-guide {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    width: 40%; height: 40%; border: 3px solid rgba(255,255,255,0.4);
+    width: 62%; height: 58%; border: 3px solid rgba(255,255,255,0.4);
     border-radius: 8px; pointer-events: none; transition: border-color 0.2s;
   }
   .scan-guide.detecting { border-color: rgba(0,255,0,1); background: rgba(0,255,0,0.08); }
@@ -544,7 +544,10 @@ async function startCamera() {
   if (!ok) { statusEl.textContent = 'QR認識エンジン初期化失敗'; return; }
 
   const constraintsList = [
+    // 高解像度ほど小さい/奥まったQRのモジュールが細かく写り、認識率が上がる
+    { video: { facingMode: { exact: 'environment' }, width: { ideal: 2560 }, height: { ideal: 1440 }, frameRate: { ideal: 30 } } },
     { video: { facingMode: { exact: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
+    { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } } },
     { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } },
     { video: { facingMode: 'environment' } },
     { video: { facingMode: { ideal: 'environment' } } },
@@ -580,49 +583,95 @@ async function startCamera() {
   } catch (e) { statusEl.textContent = '映像再生エラー: ' + e.message; }
 }
 
+// ===== 読取精度向上のための設定・補助 =====
+// 検出領域を毎フレーム切り替えて、斜め・中心外・小さい(奥まった)QRを広くカバー
+//  0.4=狭め(小さいQRを拡大して精細に)  0.55=標準  0.72=広め(斜めで台形に広がるQR)
+const CROP_RATIOS = [0.55, 0.72, 0.4];
+let scanFrame = 0;
+const MAX_PROC = 1280; // jsQR処理画像の最大辺(px)。負荷上限。
+let lastDetectData = null; // 直近に検出できたQR
+let lastDetectTime = 0;    // その時刻(ms)
+
+function ensureCropCanvas() {
+  if (!cropCanvas) {
+    cropCanvas = document.createElement('canvas');
+    cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
+  }
+}
+
+// 複数QRが写った場合、クロップ中心に最も近いものを選ぶ(隣の差込口QRの誤読防止)
+function pickCentralBarcode(barcodes, cw, ch) {
+  if (barcodes.length === 1) return barcodes[0];
+  const ccx = cw / 2, ccy = ch / 2;
+  let best = barcodes[0], bestD = Infinity;
+  for (const b of barcodes) {
+    const bb = b.boundingBox || {};
+    const bx = (bb.x != null) ? bb.x + (bb.width || 0) / 2 : ccx;
+    const by = (bb.y != null) ? bb.y + (bb.height || 0) / 2 : ccy;
+    const d = (bx - ccx) * (bx - ccx) + (by - ccy) * (by - ccy);
+    if (d < bestD) { bestD = d; best = b; }
+  }
+  return best;
+}
+
+// jsQR向け：グレースケール化＋控えめなコントラスト強調(斜め/低コントラスト時の救済)
+function enhanceForScan(d) {
+  const k = 1.3, mid = 128; // コントラスト係数(控えめ)
+  for (let i = 0; i < d.length; i += 4) {
+    let y = d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
+    y = (y - mid) * k + mid;
+    y = y < 0 ? 0 : (y > 255 ? 255 : y);
+    d[i] = d[i + 1] = d[i + 2] = y;
+  }
+}
+
 async function scanLoop() {
   if (!scanning) { requestAnimationFrame(scanLoop); return; }
   if (video.readyState === video.HAVE_ENOUGH_DATA) {
     try {
+      ensureCropCanvas();
+      const vw = video.videoWidth, vh = video.videoHeight;
+      const ratio = CROP_RATIOS[scanFrame % CROP_RATIOS.length];
+      scanFrame++;
+      const cw = Math.round(vw * ratio);
+      const ch = Math.round(vh * ratio);
+      const cx = Math.round((vw - cw) / 2);
+      const cy = Math.round((vh - ch) / 2);
       let data = null;
+
       if (useNativeDetector) {
-        // BarcodeDetectorはcropできないため、canvasで中央をクロップしてから認識
-        if (!cropCanvas) {
-          cropCanvas = document.createElement('canvas');
-          cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
-        }
-        const vw = video.videoWidth, vh = video.videoHeight;
-        // 中央40%の範囲のみ切り出し
-        const cropRatio = 0.4;
-        const cw = Math.round(vw * cropRatio);
-        const ch = Math.round(vh * cropRatio);
-        const cx = Math.round((vw - cw) / 2);
-        const cy = Math.round((vh - ch) / 2);
+        // 端末標準のBarcodeDetectorは透視歪み(斜め)に強い。クロップ全解像度で検出
         cropCanvas.width = cw;
         cropCanvas.height = ch;
         cropCtx.drawImage(video, cx, cy, cw, ch, 0, 0, cw, ch);
         const barcodes = await detector.detect(cropCanvas);
-        if (barcodes.length > 0) data = barcodes[0].rawValue;
+        if (barcodes.length > 0) data = pickCentralBarcode(barcodes, cw, ch).rawValue;
       } else {
-        if (!cropCanvas) {
-          cropCanvas = document.createElement('canvas');
-          cropCtx = cropCanvas.getContext('2d', { willReadFrequently: true });
+        // jsQR：処理解像度を上限内に収めつつ、小領域は拡大してモジュールを大きく見せる
+        const longest = Math.max(cw, ch);
+        let scale = MAX_PROC / longest;
+        if (scale > 2) scale = 2;   // 拡大は最大2倍まで
+        const dw = Math.max(1, Math.round(cw * scale));
+        const dh = Math.max(1, Math.round(ch * scale));
+        cropCanvas.width = dw;
+        cropCanvas.height = dh;
+        cropCtx.imageSmoothingEnabled = true;
+        cropCtx.drawImage(video, cx, cy, cw, ch, 0, 0, dw, dh);
+        const imageData = cropCtx.getImageData(0, 0, dw, dh);
+        // まず素のまま(jsQR内蔵の二値化が有効なケースが多い)
+        let code = jsQR(imageData.data, dw, dh, { inversionAttempts: 'attemptBoth' });
+        if (!(code && code.data)) {
+          // 失敗時のみコントラスト強調して再試行(成功時はチェックサムで保証されるため誤読しない)
+          enhanceForScan(imageData.data);
+          code = jsQR(imageData.data, dw, dh, { inversionAttempts: 'attemptBoth' });
         }
-        const vw = video.videoWidth, vh = video.videoHeight;
-        const cropRatio = 0.4;
-        const cw = Math.round(vw * cropRatio);
-        const ch = Math.round(vh * cropRatio);
-        const cx = Math.round((vw - cw) / 2);
-        const cy = Math.round((vh - ch) / 2);
-        cropCanvas.width = cw;
-        cropCanvas.height = ch;
-        cropCtx.drawImage(video, cx, cy, cw, ch, 0, 0, cw, ch);
-        const imageData = cropCtx.getImageData(0, 0, cw, ch);
-        const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' });
         if (code && code.data) data = code.data;
       }
+
       if (data) {
         liveCode = data;
+        lastDetectData = data;
+        lastDetectTime = Date.now();
         liveEl.textContent = '👁 ' + data;
         guideEl.classList.add('detecting');
       } else {
@@ -635,18 +684,26 @@ async function scanLoop() {
   requestAnimationFrame(scanLoop);
 }
 
+// 画面タップでピント再調整（奥まった差込口QR対策）
 document.getElementById('scanner-area').addEventListener('click', async () => {
   if (!currentTrack) return;
   try {
     const cap = currentTrack.getCapabilities ? currentTrack.getCapabilities() : {};
-    if (cap.focusMode && cap.focusMode.includes('single-shot')) {
+    const modes = (cap && cap.focusMode) || [];
+    if (modes.includes('single-shot')) {
       await currentTrack.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] });
-      setTimeout(async () => {
-        if (cap.focusMode.includes('continuous'))
-          try { await currentTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }); } catch(e) {}
-      }, 800);
+      setTimeout(() => {
+        if (modes.includes('continuous'))
+          currentTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
+      }, 900);
+    } else if (modes.includes('continuous')) {
+      // single-shot非対応端末：一旦manualにしてから連続AFへ戻し、再合焦を促す
+      if (modes.includes('manual')) {
+        try { await currentTrack.applyConstraints({ advanced: [{ focusMode: 'manual' }] }); } catch (e) {}
+      }
+      currentTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {});
     }
-  } catch(e) {}
+  } catch (e) {}
 });
 
 // =========== フェーズ管理 ===========
@@ -661,7 +718,7 @@ function updatePhase() {
   } else if (phase === 'slot') {
     phaseEl.textContent = '②差込口QR or 製品ラベルを読取';
     phaseEl.className = 'phase-label slot';
-    statusEl.textContent = '差込口QR(数字)または製品ラベルをスキャン';
+    statusEl.textContent = '差込口QR/製品ラベルを枠内に大きく写す（ピントは画面タップ）';
     captureTrack.textContent = '読取';
     document.getElementById('slot1').classList.add('target');
     document.getElementById('slot1').classList.remove('filled');
@@ -704,13 +761,18 @@ function parseLabel(raw) {
 // =========== キャプチャ処理 ===========
 function onCapture() {
   warmupAudio(); // スライド操作（ユーザー操作）でオーディオ/音声合成を起動
-  if (!liveCode) {
-    statusEl.textContent = '⚠ QRコードが認識されていません';
+  // 現在検出中のQR。スライド中に検出が一瞬切れても直近(700ms以内)の読取を拾う
+  let codeToUse = liveCode;
+  if (!codeToUse && lastDetectData && (Date.now() - lastDetectTime) < 700) {
+    codeToUse = lastDetectData;
+  }
+  if (!codeToUse) {
+    statusEl.textContent = '⚠ QR未認識：枠内いっぱいに大きく写し、画面をタップしてピント調整';
     beep(300, 200);
     return;
   }
   // 読取データから空白を除去
-  const data = liveCode.replace(/\s/g, '');
+  const data = codeToUse.replace(/\s/g, '');
 
   if (phase === 'cart') {
     // 台車QR読取（空白除去済み）
