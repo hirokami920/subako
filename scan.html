@@ -85,22 +85,24 @@
     margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
   }
   .cart-bar.empty { background: #8e8e93; }
-  .cart-label { font-size: 11px; color: rgba(255,255,255,0.6); }
-  .cart-value { font-size: 16px; font-weight: 700; font-family: ui-monospace, monospace; }
+  .cart-label { font-size: 13px; color: rgba(255,255,255,0.6); }
+  .cart-value { font-size: 30px; font-weight: 800; font-family: ui-monospace, monospace; line-height: 1.1; }
   .cart-count { text-align: right; }
-  .cart-count-num { font-size: 16px; font-weight: 700; }
+  .cart-count-num { font-size: 26px; font-weight: 800; }
 
   /* スロット */
   .slots { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 8px; }
   .slot {
     background: #fff; border: 2px solid #e0e0e0; border-radius: 8px;
-    padding: 6px 8px; min-height: 52px;
+    padding: 8px 10px; min-height: 78px;
   }
   .slot.filled { border-color: #007aff; background: #f0f7ff; }
   .slot.target { border-color: #ff9500; background: #fff8f0; }
-  .slot-label { font-size: 10px; color: #6e6e73; margin-bottom: 2px; font-weight: 600; }
-  .slot-value { font-size: 12px; word-break: break-all; font-family: ui-monospace, monospace; min-height: 14px; }
-  .slot-extracted { font-size: 10px; color: #007aff; margin-top: 1px; font-weight: 600; }
+  .slot-label { font-size: 13px; color: #6e6e73; margin-bottom: 3px; font-weight: 700; }
+  .slot-value { font-size: 22px; font-weight: 700; word-break: break-all; font-family: ui-monospace, monospace; min-height: 26px; line-height: 1.25; }
+  /* 差込口QR は数字のみなので特に大きく */
+  #value1 { font-size: 38px; font-weight: 800; }
+  .slot-extracted { font-size: 15px; color: #007aff; margin-top: 3px; font-weight: 700; }
 
   /* 読取スライダー 30% */
   .capture-slider {
@@ -130,17 +132,35 @@
 
   /* 結果 */
   .result-banner {
-    padding: 14px; border-radius: 10px; text-align: center;
-    margin-bottom: 8px; font-size: 20px; font-weight: 700; display: none;
+    padding: 18px; border-radius: 12px; text-align: center;
+    margin-bottom: 8px; font-size: 34px; font-weight: 800; display: none;
   }
-  .result-banner.ok { background: #d4edda; color: #155724; display: block; }
-  .result-banner.ng { background: #f8d7da; color: #721c24; display: block; animation: shake 0.4s; }
-  @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    25% { transform: translateX(-8px); }
-    75% { transform: translateX(8px); }
+  .result-banner.ok { background: #d4edda; color: #155724; display: block; animation: okBlink 0.4s ease-out 3; }
+  .result-banner.ng { background: #f8d7da; color: #721c24; display: block; animation: ngBlink 0.4s ease-out 4; }
+  @keyframes okBlink {
+    0%, 100% { background: #d4edda; color: #155724; transform: scale(1); }
+    50% { background: #28a745; color: #fff; transform: scale(1.05); }
   }
-  .result-detail { font-size: 12px; font-weight: 400; margin-top: 3px; }
+  @keyframes ngBlink {
+    0%, 100% { background: #f8d7da; color: #721c24; transform: translateX(0); }
+    25% { transform: translateX(-12px); }
+    50% { background: #dc3545; color: #fff; transform: scale(1.07); }
+    75% { transform: translateX(12px); }
+  }
+  .result-detail { font-size: 16px; font-weight: 500; margin-top: 5px; }
+
+  /* 全画面フラッシュ（OK=緑 / NG=赤）— 工場内で遠くからでも判別 */
+  .flash { position: fixed; inset: 0; pointer-events: none; z-index: 9999; opacity: 0; }
+  .flash.ok { animation: flashOK 0.45s ease-out 2; }
+  .flash.ng { animation: flashNG 0.4s ease-out 3; }
+  @keyframes flashOK {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; background: rgba(40,167,69,0.18); box-shadow: inset 0 0 0 16px #28a745; }
+  }
+  @keyframes flashNG {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; background: rgba(220,53,69,0.24); box-shadow: inset 0 0 0 18px #dc3545; }
+  }
 
   .btn {
     padding: 10px; border: none; border-radius: 8px;
@@ -248,6 +268,9 @@
 </style>
 </head>
 <body>
+
+<!-- 全画面フラッシュ用オーバーレイ -->
+<div id="flash" class="flash"></div>
 
 <!-- 初期設定画面 -->
 <div class="container" id="setup-app">
@@ -393,6 +416,7 @@ function skipSetup() { GAS_URL = ''; DEVICE_NAME = ''; showMain(); }
 function showMain() {
   document.getElementById('setup-app').classList.add('hidden');
   document.getElementById('main-app').classList.remove('hidden');
+  warmupAudio(); // ボタン操作のうちにオーディオ/音声合成を起動
   loadPackDates();
   startCamera();
 }
@@ -679,6 +703,7 @@ function parseLabel(raw) {
 
 // =========== キャプチャ処理 ===========
 function onCapture() {
+  warmupAudio(); // スライド操作（ユーザー操作）でオーディオ/音声合成を起動
   if (!liveCode) {
     statusEl.textContent = '⚠ QRコードが認識されていません';
     beep(300, 200);
@@ -816,7 +841,8 @@ function showResult(ok, cartExpect, cartActual, slotExpect, slotActual, rawLabel
   resultEl.className = 'result-banner ' + (ok ? 'ok' : 'ng');
 
   if (ok) {
-    playPinpon();
+    flashScreen('ok');
+    playSuccess();
     statusEl.textContent = '✓ 照合OK → 自動記録';
     addToMatched(cartActual, slotActual);
     const record = {
@@ -842,7 +868,10 @@ function showResult(ok, cartExpect, cartActual, slotExpect, slotActual, rawLabel
       updatePhase();
     }, 1200);
   } else {
-    // NG音声読み上げ
+    // 即時フィードバック：画面フラッシュ＋ブザー（音声より先に鳴らす）
+    flashScreen('ng');
+    playError();
+    // NG音声メッセージ生成
     let spMsg = 'エヌジー。';
     if (ngReason === '重複') {
       spMsg += '重複です。この製品は既に照合済みです。';
@@ -853,8 +882,7 @@ function showResult(ok, cartExpect, cartActual, slotExpect, slotActual, rawLabel
     } else {
       spMsg += '照合が一致しません。';
     }
-    speakNG(spMsg);
-    statusEl.textContent = '✗ NG（' + ngReason + '）- クリアして再読取';
+    statusEl.textContent = '✗ NG（' + ngReason + '）- 音声後に差込口QRから再読取します';
     const record = {
       time: new Date().toLocaleString('ja-JP'),
       cart: cartQR,
@@ -869,6 +897,14 @@ function showResult(ok, cartExpect, cartActual, slotExpect, slotActual, rawLabel
     records.push(record);
     updateStats();
     addHistory(record);
+    // 音声読み上げ → 終了後に差込口QR読込からやり直し（台車QRは保持）
+    speakNG(spMsg, () => {
+      if (!cartQR) return; // 念のため：台車未読取なら何もしない
+      clearSlotDisplay();
+      phase = 'slot';
+      updatePhase();
+      statusEl.textContent = '差込口QRから再読取してください';
+    });
   }
 
   document.getElementById('slide-submit').classList.remove('disabled');
@@ -1007,47 +1043,124 @@ function addToMatched(cartPart, slotNum) {
   matchedSet.add(key);
 }
 
-// =========== 音声フィードバック ===========
+// =========== 音声・効果音（工場向け大音量・即時再生） ===========
+// 単一のAudioContextを使い回す（毎回生成すると遅延・iOSで無音になるため）
+let audioCtx = null;
+function getAudioCtx() {
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch (e) {}
+  return audioCtx;
+}
+
+// ユーザー操作時にオーディオと音声合成を起こしておく（初回遅延の解消）
+function warmupAudio() {
+  getAudioCtx();
+  // 音声合成エンジンを無音で一度起動しておくと、本番の発話が即座に始まる
+  try {
+    if ('speechSynthesis' in window && !speechWarmed) {
+      const w = new SpeechSynthesisUtterance(' ');
+      w.volume = 0; w.lang = 'ja-JP';
+      speechSynthesis.speak(w);
+      speechWarmed = true;
+    }
+  } catch (e) {}
+}
+
+// 連続トーン再生（コンプレッサ経由でクリップを抑えつつ最大音量）
+function toneSeq(notes, type, masterVol) {
+  const c = getAudioCtx();
+  if (!c) return;
+  try {
+    const comp = c.createDynamicsCompressor();
+    const master = c.createGain();
+    master.gain.value = masterVol == null ? 1.0 : masterVol;
+    comp.connect(master); master.connect(c.destination);
+    const t0 = c.currentTime + 0.001;
+    notes.forEach(n => {
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = type || 'square';
+      o.frequency.value = n.f;
+      const st = t0 + n.t, en = st + n.d;
+      g.gain.setValueAtTime(0.0001, st);
+      g.gain.exponentialRampToValueAtTime(n.g || 0.95, st + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, en);
+      o.connect(g); g.connect(comp);
+      o.start(st); o.stop(en + 0.03);
+    });
+  } catch (e) {}
+}
+
+// 汎用ビープ（台車読取・差込口読取などの操作音）大音量
 function beep(freq, duration) {
-  try {
-    const c = new (window.AudioContext || window.webkitAudioContext)();
-    const o = c.createOscillator(); const g = c.createGain();
-    o.frequency.value = freq; o.connect(g); g.connect(c.destination); g.gain.value = 0.3;
-    o.start(); setTimeout(() => { o.stop(); c.close(); }, duration);
-  } catch (e) {}
+  toneSeq([{ f: freq, t: 0, d: (duration || 150) / 1000, g: 0.95 }], 'square', 1.0);
 }
 
-function playPinpon() {
-  try {
-    const c = new (window.AudioContext || window.webkitAudioContext)();
-    const g = c.createGain();
-    g.connect(c.destination);
-    g.gain.value = 1.0;
-    // ピン（高音）
-    const o1 = c.createOscillator();
-    o1.frequency.value = 880;
-    o1.connect(g);
-    o1.start(c.currentTime);
-    o1.stop(c.currentTime + 0.25);
-    // ポーン（低音）
-    const o2 = c.createOscillator();
-    o2.frequency.value = 660;
-    o2.connect(g);
-    o2.start(c.currentTime + 0.28);
-    o2.stop(c.currentTime + 0.6);
-    setTimeout(() => c.close(), 700);
-  } catch (e) {}
+// 成功音：心地よい上昇アルペジオ（C5-E5-G5-C6）
+function playSuccess() {
+  toneSeq([
+    { f: 523.25, t: 0.00, d: 0.13, g: 0.9 },
+    { f: 659.25, t: 0.10, d: 0.13, g: 0.9 },
+    { f: 783.99, t: 0.20, d: 0.13, g: 0.9 },
+    { f: 1046.5, t: 0.30, d: 0.34, g: 1.0 }
+  ], 'triangle', 1.0);
+}
+// 旧名互換
+function playPinpon() { playSuccess(); }
+
+// エラー音：即時の強い低音ブザー2連（工場内でも気付く）
+function playError() {
+  toneSeq([
+    { f: 220, t: 0.00, d: 0.20, g: 1.0 },
+    { f: 165, t: 0.22, d: 0.34, g: 1.0 }
+  ], 'square', 1.0);
 }
 
-function speakNG(message) {
+// 全画面フラッシュ（type: 'ok' | 'ng'）
+function flashScreen(type) {
+  const el = document.getElementById('flash');
+  if (!el) return;
+  el.className = 'flash';
+  void el.offsetWidth; // リフロー強制でアニメーション再生をリセット
+  el.className = 'flash ' + type;
+}
+
+// 日本語音声を事前選択（発話開始を速くする）
+let jaVoice = null;
+let speechWarmed = false;
+function initVoices() {
+  try {
+    const vs = speechSynthesis.getVoices();
+    jaVoice = vs.find(v => v.lang === 'ja-JP') || vs.find(v => (v.lang || '').toLowerCase().startsWith('ja')) || null;
+  } catch (e) {}
+}
+if ('speechSynthesis' in window) {
+  initVoices();
+  speechSynthesis.onvoiceschanged = initVoices;
+}
+
+// NG読み上げ。発話終了後に onDone を必ず1回呼ぶ（安全タイマー付き）
+function speakNG(message, onDone) {
+  let done = false;
+  const finish = () => { if (done) return; done = true; if (onDone) onDone(); };
   try {
     const u = new SpeechSynthesisUtterance(message);
     u.lang = 'ja-JP';
-    u.rate = 1.2;
-    u.volume = 1.0;
+    if (jaVoice) u.voice = jaVoice;
+    u.rate = 1.15;
+    u.pitch = 1.0;
+    u.volume = 1.0; // 音声合成APIの上限は1.0
+    u.onend = finish;
+    u.onerror = finish;
     speechSynthesis.cancel();
     speechSynthesis.speak(u);
-  } catch (e) {}
+    // 安全策：onend が来ない環境向け（発話長を概算 + 余裕）
+    setTimeout(finish, Math.max(2500, message.length * 130 + 1800));
+  } catch (e) {
+    setTimeout(finish, 1500);
+  }
 }
 
 // =========== スライダー共通 ===========
