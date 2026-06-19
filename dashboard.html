@@ -267,7 +267,7 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
   .pl-cell.fill{background:#dbe7f6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .pl-cell.empty{background:#fff}
   .pl-n{font-size:9px;font-weight:700;color:#555;line-height:1}
-  .pl-p{font-size:9.5px;font-weight:700;text-align:center;line-height:1.12;word-break:break-all;margin-top:3px}
+  .pl-p{font-size:9.5px;font-weight:700;text-align:center;line-height:1.18;word-break:break-all;margin-top:3px}
 }
 
 /* SETUP SCREEN (initial GAS URL config) */
@@ -861,6 +861,15 @@ function prodLabel(sd){
   if(!s&&sd.full){const hi=sd.full.indexOf('#');s=(hi>0?sd.full.substring(0,hi):sd.full).replace(/,/g,'-').trim();}
   return s;
 }
+// 印刷用：品番を「-L」の前で強制改行（例: 5K19373- / L1981）。戻り値はエスケープ済みHTML。
+function prodLabelHTML(sd){
+  let p=(sd.product||'').trim(),n=(sd.num||'').trim();
+  if(p&&n)return escapeP(p)+'-<br>'+escapeP(n);
+  let s=prodLabel(sd);
+  const idx=s.lastIndexOf('-L');
+  if(idx>0)return escapeP(s.slice(0,idx+1))+'<br>'+escapeP(s.slice(idx+1));
+  return escapeP(s);
+}
 // 現在の梱包日の全台車を印刷用HTMLに変換（巣箱の並び＝15列グリッド：番号＋品番-L寸）
 function buildPrintHTML(){
   const pd=S.currentPackDate;
@@ -880,7 +889,7 @@ function buildPrintHTML(){
       const sn=r*GC+col+1;
       if(sn>maxSlot){cells+='<div class="pl-cell empty"></div>';continue;}
       const sd=c.slots[sn];
-      const p=sd?escapeP(prodLabel(sd)):'';
+      const p=sd?prodLabelHTML(sd):'';
       cells+='<div class="pl-cell '+(sd?'fill':'empty')+'"><div class="pl-n">'+sn+'</div><div class="pl-p">'+p+'</div></div>';
     }}
     // 台車上部（タイプ2＝巣箱の上に乗せる分）
