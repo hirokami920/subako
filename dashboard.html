@@ -263,11 +263,18 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
   .pl-top-item{border:1px solid #999;border-radius:3px;padding:2px 8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .pl-top-none{font-size:11px;color:#777}
   .pl-grid{display:grid;grid-template-columns:repeat(15,1fr);border-left:1.4px solid #222;border-top:1.4px solid #222}
-  .pl-cell{border-right:1.4px solid #222;border-bottom:1.4px solid #222;height:20mm;padding:2px 1px;display:flex;flex-direction:column;align-items:center;overflow:hidden}
+  .pl-cell{border-right:1.4px solid #222;border-bottom:1.4px solid #222;height:12mm;padding:1px;display:flex;flex-direction:column;align-items:center;overflow:hidden}
   .pl-cell.fill{background:#b4d0ee;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .pl-cell.empty{background:#fff}
   .pl-n{font-size:9px;font-weight:700;color:#555;line-height:1}
-  .pl-p{font-size:9.5px;font-weight:700;text-align:center;line-height:1.18;word-break:break-all;margin-top:3px}
+  .pl-p{font-size:9.5px;font-weight:700;text-align:center;line-height:1.15;word-break:break-all;margin-top:1px}
+  /* 品番別 合計数 */
+  .pl-sum{margin-top:10px;border-top:2px solid #222;padding-top:6px}
+  .pl-sum-title{font-size:14px;font-weight:800;margin-bottom:5px}
+  .pl-sum-cols{column-count:3;column-gap:16px}
+  .pl-sum-row{display:flex;justify-content:space-between;align-items:baseline;border-bottom:0.5px dotted #999;padding:1.5px 4px;font-size:11px;break-inside:avoid}
+  .pl-sum-no{font-weight:600}
+  .pl-sum-q{font-weight:800;white-space:nowrap;margin-left:8px}
 }
 
 /* SETUP SCREEN (initial GAS URL config) */
@@ -896,12 +903,23 @@ function buildPrintHTML(){
     const topItems=c.type2.length
       ? c.type2.map(t=>'<span class="pl-top-item">'+escapeP(prodLabel(t))+'</span>').join('')
       : '<span class="pl-top-none">（なし）</span>';
+    // 品番別 合計数（巣箱内＋台車上部すべてを品番-L寸でグループ化）
+    const counts={};
+    Object.keys(c.slots).forEach(k=>{const key=prodLabel(c.slots[k]);if(key)counts[key]=(counts[key]||0)+1;});
+    c.type2.forEach(t=>{const key=prodLabel(t);if(key)counts[key]=(counts[key]||0)+1;});
+    const keys=Object.keys(counts).sort((a,b)=>a.localeCompare(b,'ja',{numeric:true}));
+    const totalQty=keys.reduce((s,k)=>s+counts[k],0);
+    const sumRows=keys.map(k=>'<div class="pl-sum-row"><span class="pl-sum-no">'+escapeP(k)+'</span><span class="pl-sum-q">'+counts[k]+'本</span></div>').join('');
+    const sumHtml=keys.length
+      ? '<div class="pl-sum"><div class="pl-sum-title">品番別 合計数（'+keys.length+'品番／計'+totalQty+'本）</div><div class="pl-sum-cols">'+sumRows+'</div></div>'
+      : '';
     html+='<div class="pl-page">'+
       '<div class="pl-header"><div><div class="pl-htitle">巣箱リスト</div>'+
         '<div class="pl-meta">梱包日：'+fmtD(pd)+'　／　台車：'+escapeP(cid)+'　／　本数：'+total+'本</div></div>'+
         '<div class="pl-issue">発行日：'+today+'</div></div>'+
       '<div class="pl-top"><div class="pl-top-title">▲ 巣箱上に乗せる分（台車上部）</div><div class="pl-top-items">'+topItems+'</div></div>'+
       '<div class="pl-grid">'+cells+'</div>'+
+      sumHtml+
       '</div>';
   });
   return html;
