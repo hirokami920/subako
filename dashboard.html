@@ -250,22 +250,24 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
   body{visibility:hidden}
   #print-area{display:block !important;visibility:visible;position:absolute;left:0;top:0;width:100%}
   #print-area *{visibility:visible}
-  @page{size:landscape;margin:8mm}
-  .pl-page{font-family:var(--font-body);color:#000;page-break-inside:avoid}
-  .pl-header{display:flex;align-items:baseline;gap:20px;margin-bottom:6px;border-bottom:2px solid #000;padding-bottom:4px}
-  .pl-title{font-size:20px;font-weight:800;letter-spacing:1px}
-  .pl-meta{display:flex;flex-wrap:wrap;gap:18px;font-size:12px;font-weight:700}
-  .pl-cols{display:flex;gap:6px;align-items:flex-start}
-  .pl-tbl{border-collapse:collapse;font-size:9px;flex:1}
-  .pl-tbl th,.pl-tbl td{border:1px solid #555;padding:1px 3px;text-align:center;line-height:1.2}
-  .pl-tbl th{background:#e8e8e8;font-weight:700}
-  .pl-no{width:26px;font-weight:700;font-variant-numeric:tabular-nums}
-  .pl-hin{text-align:left;white-space:nowrap}
-  .pl-chk{width:34px;height:15px}
-  .pl-blank td{height:15px}
-  .pl-t2{margin-top:8px;max-width:46%}
-  .pl-t2-title{font-size:12px;font-weight:700;margin-bottom:3px}
-  .pl-t2-tbl{font-size:9px}
+  @page{size:A3 portrait;margin:8mm}
+  .pl-page{font-family:var(--font-body);color:#000;page-break-after:always}
+  .pl-page:last-child{page-break-after:auto}
+  .pl-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
+  .pl-htitle{font-size:24px;font-weight:800;letter-spacing:2px}
+  .pl-meta{font-size:14px;font-weight:700;line-height:1.7;margin-top:4px}
+  .pl-issue{font-size:13px;font-weight:600;white-space:nowrap}
+  .pl-top{border:1px solid #333;border-radius:3px;padding:5px 8px;margin-bottom:8px}
+  .pl-top-title{font-size:12px;font-weight:700;margin-bottom:3px}
+  .pl-top-items{display:flex;flex-wrap:wrap;gap:6px;font-size:12px}
+  .pl-top-item{border:1px solid #999;border-radius:3px;padding:2px 8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pl-top-none{font-size:11px;color:#777}
+  .pl-grid{display:grid;grid-template-columns:repeat(15,1fr);border-left:1.4px solid #222;border-top:1.4px solid #222}
+  .pl-cell{border-right:1.4px solid #222;border-bottom:1.4px solid #222;height:20mm;padding:2px 1px;display:flex;flex-direction:column;align-items:center;overflow:hidden}
+  .pl-cell.fill{background:#dbe7f6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pl-cell.empty{background:#fff}
+  .pl-n{font-size:9px;font-weight:700;color:#555;line-height:1}
+  .pl-p{font-size:9.5px;font-weight:700;text-align:center;line-height:1.12;word-break:break-all;margin-top:3px}
 }
 
 /* SETUP SCREEN (initial GAS URL config) */
@@ -859,42 +861,38 @@ function prodLabel(sd){
   if(!s&&sd.full){const hi=sd.full.indexOf('#');s=(hi>0?sd.full.substring(0,hi):sd.full).replace(/,/g,'-').trim();}
   return s;
 }
-// 現在の梱包日の全台車を印刷用HTMLに変換
+// 現在の梱包日の全台車を印刷用HTMLに変換（巣箱の並び＝15列グリッド：番号＋品番-L寸）
 function buildPrintHTML(){
   const pd=S.currentPackDate;
   const ids=sortC(Object.keys(S.cartData.carts));
   const now=new Date();
   const today=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
-  const ROWS=51; // 1列あたりの行数（添付に合わせる）
+  const GC=15; // 巣箱の横並び数
   let html='';
-  ids.forEach((cid,ci)=>{
+  ids.forEach(cid=>{
     const c=S.cartData.carts[cid];
     const maxSlot=c.maxSlot||0;
-    const t1=Object.keys(c.slots).length,t2=c.type2.length;
-    const total=t1+t2;
-    const cols=Math.max(1,Math.ceil(maxSlot/ROWS));
-    let colsHtml='';
-    for(let col=0;col<cols;col++){
-      let rows='';
-      for(let r=0;r<ROWS;r++){
-        const sn=col*ROWS+r+1;
-        if(sn>maxSlot){rows+='<tr class="pl-blank"><td></td><td></td><td></td></tr>';continue;}
-        const sd=c.slots[sn];
-        const hin=sd?escapeP(prodLabel(sd)):'';
-        rows+='<tr><td class="pl-no">'+sn+'</td><td class="pl-hin">'+hin+'</td><td class="pl-chk"></td></tr>';
-      }
-      colsHtml+='<table class="pl-tbl"><thead><tr><th>巣箱口</th><th>品番-L寸</th><th>確認</th></tr></thead><tbody>'+rows+'</tbody></table>';
-    }
-    let t2Html='';
-    if(t2>0){
-      let r2='';
-      c.type2.forEach((t,i)=>{r2+='<tr><td class="pl-no">上'+(i+1)+'</td><td class="pl-hin">'+escapeP(prodLabel(t))+'</td><td class="pl-chk"></td></tr>';});
-      t2Html='<div class="pl-t2"><div class="pl-t2-title">台車上部（タイプ2）</div><table class="pl-tbl pl-t2-tbl"><thead><tr><th>区分</th><th>品番-L寸</th><th>確認</th></tr></thead><tbody>'+r2+'</tbody></table></div>';
-    }
-    html+='<div class="pl-page"'+(ci<ids.length-1?' style="page-break-after:always"':'')+'>'+
-      '<div class="pl-header"><div class="pl-title">巣箱リスト</div>'+
-      '<div class="pl-meta"><span>発行日：'+today+'</span><span>梱包日：'+fmtD(pd)+'</span><span>台車：'+escapeP(cid)+'</span><span>本数：'+total+'本</span></div></div>'+
-      '<div class="pl-cols">'+colsHtml+'</div>'+t2Html+
+    const total=Object.keys(c.slots).length+c.type2.length;
+    // 巣箱グリッド（各マス：上=巣箱口番号 / 下=品番-L寸）
+    const grows=Math.max(1,Math.ceil(maxSlot/GC));
+    let cells='';
+    for(let r=0;r<grows;r++){for(let col=0;col<GC;col++){
+      const sn=r*GC+col+1;
+      if(sn>maxSlot){cells+='<div class="pl-cell empty"></div>';continue;}
+      const sd=c.slots[sn];
+      const p=sd?escapeP(prodLabel(sd)):'';
+      cells+='<div class="pl-cell '+(sd?'fill':'empty')+'"><div class="pl-n">'+sn+'</div><div class="pl-p">'+p+'</div></div>';
+    }}
+    // 台車上部（タイプ2＝巣箱の上に乗せる分）
+    const topItems=c.type2.length
+      ? c.type2.map(t=>'<span class="pl-top-item">'+escapeP(prodLabel(t))+'</span>').join('')
+      : '<span class="pl-top-none">（なし）</span>';
+    html+='<div class="pl-page">'+
+      '<div class="pl-header"><div><div class="pl-htitle">巣箱リスト</div>'+
+        '<div class="pl-meta">梱包日：'+fmtD(pd)+'　／　台車：'+escapeP(cid)+'　／　本数：'+total+'本</div></div>'+
+        '<div class="pl-issue">発行日：'+today+'</div></div>'+
+      '<div class="pl-top"><div class="pl-top-title">▲ 巣箱上に乗せる分（台車上部）</div><div class="pl-top-items">'+topItems+'</div></div>'+
+      '<div class="pl-grid">'+cells+'</div>'+
       '</div>';
   });
   return html;
