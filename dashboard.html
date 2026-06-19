@@ -233,6 +233,41 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 .lcell.latest{animation:blinkLatest 0.9s ease-in-out infinite;z-index:5;font-weight:700;border:none !important}
 .t2-chip.latest{animation:blinkLatest 0.9s ease-in-out infinite;z-index:5}
 
+/* 印刷ボタン */
+.print-btn{
+  background:var(--blue-600);color:#fff;border:none;border-radius:var(--radius-sm);
+  padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:var(--font-body);
+  transition:background 0.2s;
+}
+.print-btn:hover{background:var(--blue-700)}
+
+/* ============================================================
+   印刷用チェックシート（画面では非表示・印刷時のみ表示）
+   ============================================================ */
+#print-area{display:none}
+@media print{
+  html,body{background:#fff !important}
+  body{visibility:hidden}
+  #print-area{display:block !important;visibility:visible;position:absolute;left:0;top:0;width:100%}
+  #print-area *{visibility:visible}
+  @page{size:landscape;margin:8mm}
+  .pl-page{font-family:var(--font-body);color:#000;page-break-inside:avoid}
+  .pl-header{display:flex;align-items:baseline;gap:20px;margin-bottom:6px;border-bottom:2px solid #000;padding-bottom:4px}
+  .pl-title{font-size:20px;font-weight:800;letter-spacing:1px}
+  .pl-meta{display:flex;flex-wrap:wrap;gap:18px;font-size:12px;font-weight:700}
+  .pl-cols{display:flex;gap:6px;align-items:flex-start}
+  .pl-tbl{border-collapse:collapse;font-size:9px;flex:1}
+  .pl-tbl th,.pl-tbl td{border:1px solid #555;padding:1px 3px;text-align:center;line-height:1.2}
+  .pl-tbl th{background:#e8e8e8;font-weight:700}
+  .pl-no{width:26px;font-weight:700;font-variant-numeric:tabular-nums}
+  .pl-hin{text-align:left;white-space:nowrap}
+  .pl-chk{width:34px;height:15px}
+  .pl-blank td{height:15px}
+  .pl-t2{margin-top:8px;max-width:46%}
+  .pl-t2-title{font-size:12px;font-weight:700;margin-bottom:3px}
+  .pl-t2-tbl{font-size:9px}
+}
+
 /* SETUP SCREEN (initial GAS URL config) */
 .setup-screen{
   position:fixed;inset:0;background:linear-gradient(135deg,var(--blue-50),#fff,var(--blue-100));
@@ -760,10 +795,11 @@ function mobileTabsHTML(){
     '</div>';
 }
 
-// 上部コントロールバー（表示台車数 + 自動追従トグル）
+// 上部コントロールバー（表示台車数 + 印刷 + 自動追従トグル）
 function controlsHTML(ids){
   return'<div class="dash-controls">'+
     '<span class="dc-label">📦 台車 '+ids.length+'台を詳細表示中</span>'+
+    '<button class="print-btn" onclick="W.printList()">🖨 この梱包日のリストを印刷</button>'+
     '<div class="auto-toggle '+(S.autoFollow?'on':'')+'" onclick="W.toggleAuto()">🔄 自動追従 '+(S.autoFollow?'ON':'OFF')+'</div>'+
     '</div>';
 }
@@ -808,6 +844,67 @@ function cartsDetailHTML(ids){
       '<div class="cdc-grid-wrap"><div class="large-grid" style="grid-template-columns:repeat('+COLS+',1fr)">'+grid+'</div></div>'+
       '</div>';
   }).join('')+'</div>';
+}
+
+// ============================================================
+// 印刷（梱包日ごとのチェックシート）
+// ============================================================
+function escapeP(s){
+  return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+}
+// 品番-L寸 の表示文字を組み立てる（例: 5K19373-L1981）
+function prodLabel(sd){
+  let p=(sd.product||'').trim(),n=(sd.num||'').trim();
+  let s=(p&&n)?(p+'-'+n):(p||n||'');
+  if(!s&&sd.full){const hi=sd.full.indexOf('#');s=(hi>0?sd.full.substring(0,hi):sd.full).replace(/,/g,'-').trim();}
+  return s;
+}
+// 現在の梱包日の全台車を印刷用HTMLに変換
+function buildPrintHTML(){
+  const pd=S.currentPackDate;
+  const ids=sortC(Object.keys(S.cartData.carts));
+  const now=new Date();
+  const today=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
+  const ROWS=51; // 1列あたりの行数（添付に合わせる）
+  let html='';
+  ids.forEach((cid,ci)=>{
+    const c=S.cartData.carts[cid];
+    const maxSlot=c.maxSlot||0;
+    const t1=Object.keys(c.slots).length,t2=c.type2.length;
+    const total=t1+t2;
+    const cols=Math.max(1,Math.ceil(maxSlot/ROWS));
+    let colsHtml='';
+    for(let col=0;col<cols;col++){
+      let rows='';
+      for(let r=0;r<ROWS;r++){
+        const sn=col*ROWS+r+1;
+        if(sn>maxSlot){rows+='<tr class="pl-blank"><td></td><td></td><td></td></tr>';continue;}
+        const sd=c.slots[sn];
+        const hin=sd?escapeP(prodLabel(sd)):'';
+        rows+='<tr><td class="pl-no">'+sn+'</td><td class="pl-hin">'+hin+'</td><td class="pl-chk"></td></tr>';
+      }
+      colsHtml+='<table class="pl-tbl"><thead><tr><th>巣箱口</th><th>品番-L寸</th><th>確認</th></tr></thead><tbody>'+rows+'</tbody></table>';
+    }
+    let t2Html='';
+    if(t2>0){
+      let r2='';
+      c.type2.forEach((t,i)=>{r2+='<tr><td class="pl-no">上'+(i+1)+'</td><td class="pl-hin">'+escapeP(prodLabel(t))+'</td><td class="pl-chk"></td></tr>';});
+      t2Html='<div class="pl-t2"><div class="pl-t2-title">台車上部（タイプ2）</div><table class="pl-tbl pl-t2-tbl"><thead><tr><th>区分</th><th>品番-L寸</th><th>確認</th></tr></thead><tbody>'+r2+'</tbody></table></div>';
+    }
+    html+='<div class="pl-page"'+(ci<ids.length-1?' style="page-break-after:always"':'')+'>'+
+      '<div class="pl-header"><div class="pl-title">巣箱リスト</div>'+
+      '<div class="pl-meta"><span>発行日：'+today+'</span><span>梱包日：'+fmtD(pd)+'</span><span>台車：'+escapeP(cid)+'</span><span>本数：'+total+'本</span></div></div>'+
+      '<div class="pl-cols">'+colsHtml+'</div>'+t2Html+
+      '</div>';
+  });
+  return html;
+}
+function printSubakoList(){
+  if(!S.cartData||Object.keys(S.cartData.carts).length===0){alert('印刷対象の台車がありません');return;}
+  let pa=document.getElementById('print-area');
+  if(!pa){pa=document.createElement('div');pa.id='print-area';document.body.appendChild(pa);}
+  pa.innerHTML=buildPrintHTML();
+  window.print();
 }
 
 function mobileNavHTML(ids){
@@ -901,6 +998,7 @@ const W={
     await loadAll();startPoll();
   },
   setV(v){S.mobileView=v;render()},
+  printList(){printSubakoList()},
 };
 window.W=W;
 
