@@ -250,9 +250,25 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
   body{visibility:hidden}
   #print-area{display:block !important;visibility:visible;position:absolute;left:0;top:0;width:100%}
   #print-area *{visibility:visible}
-  @page{size:A3 portrait;margin:8mm}
-  .pl-page{font-family:var(--font-body);color:#000;page-break-after:always}
-  .pl-page:last-child{page-break-after:auto}
+  @page list{size:A3 portrait;margin:8mm}
+  @page kanban{size:A4 portrait;margin:12mm}
+  #print-area>:last-child{break-after:auto}
+  .pl-page{page:list;font-family:var(--font-body);color:#000;break-after:page}
+  /* QRカンバン（A4縦・台車ごと） */
+  .kanban-page{page:kanban;font-family:var(--font-body);color:#000;height:273mm;border:3px solid #000;display:flex;flex-direction:column;break-after:page}
+  .kb-row{display:flex;border-bottom:3px solid #000;min-height:0}
+  .kb-row:last-child{border-bottom:none}
+  .kb-row.r-date{flex:0 0 20%}
+  .kb-row.r-cart{flex:1 1 auto}
+  .kb-row.r-count{flex:0 0 18%}
+  .kb-label{flex:0 0 24%;border-right:3px solid #000;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-size:24px;font-weight:800;line-height:1.4}
+  .kb-label span{white-space:nowrap}
+  .kb-content{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:6mm}
+  .kb-date{font-size:62px;font-weight:800;letter-spacing:1px}
+  .kb-cart{font-size:120px;font-weight:800;line-height:1}
+  .kb-count{font-size:84px;font-weight:800}
+  .kb-qr{margin-top:7mm;width:58mm;height:58mm}
+  .kb-qr svg{width:100%;height:100%;display:block}
   .pl-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px}
   .pl-htitle{font-size:24px;font-weight:800;letter-spacing:2px}
   .pl-meta{font-size:14px;font-weight:700;line-height:1.7;margin-top:4px}
@@ -416,6 +432,7 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 </head>
 <body>
 <div id="app"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
 <script>
 // ============================================================
 // CSV PARSING
@@ -892,6 +909,40 @@ function prodLabelHTML(sd){
   if(idx>0)return escapeP(s.slice(0,idx+1))+'<br>'+escapeP(s.slice(idx+1));
   return escapeP(s);
 }
+// ===== QRカンバン（A4縦・台車ごと） =====
+// 包装計画日を YYYY/M/D（先頭ゼロなし）で
+function kbDate(d){if(!d||d.length!==8)return d;return parseInt(d.slice(0,4),10)+'/'+parseInt(d.slice(4,6),10)+'/'+parseInt(d.slice(6,8),10);}
+// QRコードSVGを生成（中身はscan.htmlが読む台車QR＝「包装計画日,ライン-台車NO」）
+function makeQRSvg(text){
+  try{
+    if(typeof qrcode==='undefined')return'';
+    const qr=qrcode(0,'M');
+    qr.addData(String(text));
+    qr.make();
+    return qr.createSvgTag({cellSize:6,margin:0,scalable:true});
+  }catch(e){return'';}
+}
+// 現在の梱包日の全台車（台車上部「3_」含む）のQRカンバンを生成
+function buildKanbanHTML(){
+  const pd=S.currentPackDate;
+  const ids=sortC(Object.keys(S.cartData.carts));
+  let html='';
+  ids.forEach(cid=>{
+    const c=S.cartData.carts[cid];
+    const total=Object.keys(c.slots).length+c.type2.length;
+    const qrText=pd+','+cid; // 台車QR＝scan.htmlが読む値
+    html+='<div class="kanban-page">'+
+      '<div class="kb-row r-date"><div class="kb-label"><span>包装</span><span>計画日</span></div>'+
+        '<div class="kb-content"><div class="kb-date">'+kbDate(pd)+'</div></div></div>'+
+      '<div class="kb-row r-cart"><div class="kb-label"><span>ライン-</span><span>台車NO</span></div>'+
+        '<div class="kb-content"><div class="kb-cart">'+escapeP(cid)+'</div><div class="kb-qr">'+makeQRSvg(qrText)+'</div></div></div>'+
+      '<div class="kb-row r-count"><div class="kb-label"><span>本数</span></div>'+
+        '<div class="kb-content"><div class="kb-count">'+total+'</div></div></div>'+
+      '</div>';
+  });
+  return html;
+}
+
 // 現在の梱包日の全台車を印刷用HTMLに変換（巣箱の並び＝15列グリッド：番号＋品番-L寸）
 function buildPrintHTML(){
   const pd=S.currentPackDate;
@@ -952,7 +1003,7 @@ function printSubakoList(){
   if(!S.cartData||Object.keys(S.cartData.carts).length===0){alert('印刷対象の台車がありません');return;}
   let pa=document.getElementById('print-area');
   if(!pa){pa=document.createElement('div');pa.id='print-area';document.body.appendChild(pa);}
-  pa.innerHTML=buildPrintHTML();
+  pa.innerHTML=buildKanbanHTML()+buildPrintHTML();
   window.print();
 }
 
