@@ -275,7 +275,8 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
   .pl-sum-cols{column-count:3;column-gap:16px}
   .pl-sum-row{display:flex;justify-content:space-between;align-items:baseline;border-bottom:0.5px dotted #999;padding:2.5px 5px;font-size:20px;break-inside:avoid}
   .pl-sum-row.hl{background:#a8cdf5;-webkit-print-color-adjust:exact;print-color-adjust:exact} /* 6K15911 など指定品番をブルーで強調 */
-  .pl-sum-no{font-weight:600}
+  .pl-sum-no{font-weight:600;white-space:nowrap;flex-shrink:0}
+  .pl-sum-tana{flex:1;min-width:0;text-align:center;color:#0883a0;font-weight:800;white-space:nowrap;padding:0 6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .pl-sum-q{font-weight:800;white-space:nowrap;margin-left:8px}
 }
 
@@ -419,42 +420,54 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 // ============================================================
 // CSV PARSING
 // ============================================================
+// CSV1行を「QR列」と「棚番列」に分解（2列: "QR","棚番"／旧1列: "QR" 両対応）。
+// QRにカンマが含まれてもフィールド境界 '","' で正しく分割する。照合はQRのみ使用。
+function splitLine(raw){
+  let s=String(raw==null?'':raw).trim();
+  if(!s)return{qr:'',tana:''};
+  if(s.charAt(0)==='"'){
+    s=s.slice(1);
+    if(s.charAt(s.length-1)==='"')s=s.slice(0,-1);
+    const i=s.indexOf('","');
+    if(i>=0)return{qr:s.slice(0,i).replace(/""/g,'"'),tana:s.slice(i+3).replace(/""/g,'"')};
+    return{qr:s.replace(/""/g,'"'),tana:''};
+  }
+  return{qr:s,tana:''};
+}
+
+function parseOneLine(raw){
+  const sp=splitLine(raw);
+  const line=sp.qr;
+  if(!line)return null;
+  if(line.indexOf('ラベル')>=0&&line.indexOf('#')<0)return null;
+  const hi=line.indexOf('#');
+  if(hi<0)return null;
+  const before=line.substring(0,hi),after=line.substring(hi+1);
+  const pp=before.split(','),ap=after.split(',');
+  const date=ap[0]||'',ci=(ap[1]||'').trim();
+  let cart,slot,type;
+  if(ci.includes('-')){const s=ci.split('-');cart=s[0];slot=parseInt(s[1]);type=1}
+  else{cart=ci;slot=-1;type=2}
+  return{product:pp[0]||'',num:pp[1]||'',date,cart,slot,type,full:line,tana:sp.tana||''};
+}
+
 function parseCSVText(text){
   const lines=text.replace(/\r/g,'').split('\n').filter(l=>l.trim());
   if(lines.length<2)return null;
   const items=[];
   for(let i=1;i<lines.length;i++){
-    const line=lines[i].replace(/"/g,'').trim();
-    if(!line)continue;
-    const hi=line.indexOf('#');
-    if(hi<0)continue;
-    const before=line.substring(0,hi),after=line.substring(hi+1);
-    const pp=before.split(','),ap=after.split(',');
-    const date=ap[0]||'',ci=(ap[1]||'').trim();
-    let cart,slot,type;
-    if(ci.includes('-')){const s=ci.split('-');cart=s[0];slot=parseInt(s[1]);type=1}
-    else{cart=ci;slot=-1;type=2}
-    items.push({product:pp[0]||'',num:pp[1]||'',date,cart,slot,type,full:line});
+    const it=parseOneLine(lines[i]);
+    if(it)items.push(it);
   }
   return items;
 }
 
-// Parse CSV rows from GAS (array of arrays, each row is [labelQR])
+// Parse CSV rows from GAS (array of arrays, each row is [labelQR] or [labelQR,棚番])
 function parseCSVFromGAS(rows){
   const items=[];
   rows.forEach(row=>{
-    const line=String(row[0]||'').replace(/"/g,'').trim();
-    if(!line)return;
-    if(line.indexOf('ラベル')>=0&&line.indexOf('#')<0)return;
-    const hi=line.indexOf('#');
-    if(hi<0)return;
-    const before=line.substring(0,hi),after=line.substring(hi+1);
-    const pp=before.split(','),ap=after.split(',');
-    const date=ap[0]||'',ci=(ap[1]||'').trim();
-    let cart,slot,type;
-    if(ci.includes('-')){const s=ci.split('-');cart=s[0];slot=parseInt(s[1]);type=1}
-    else{cart=ci;slot=-1;type=2}
-    items.push({product:pp[0]||'',num:pp[1]||'',date,cart,slot,type,full:line});
+    const it=parseOneLine(row[0]);
+    if(it)items.push(it);
   });
   return items.length>0?items:null;
 }
@@ -473,8 +486,8 @@ function buildCartData(items,packDate){
   filtered.forEach(it=>{
     if(!date&&it.date)date=it.date;
     if(!carts[it.cart])carts[it.cart]={slots:{},type2:[],maxSlot:0};
-    if(it.type===1){carts[it.cart].slots[it.slot]={product:it.product,num:it.num,full:it.full};if(it.slot>carts[it.cart].maxSlot)carts[it.cart].maxSlot=it.slot}
-    else carts[it.cart].type2.push({product:it.product,num:it.num,full:it.full});
+    if(it.type===1){carts[it.cart].slots[it.slot]={product:it.product,num:it.num,full:it.full,tana:it.tana||''};if(it.slot>carts[it.cart].maxSlot)carts[it.cart].maxSlot=it.slot}
+    else carts[it.cart].type2.push({product:it.product,num:it.num,full:it.full,tana:it.tana||''});
   });
   return{carts,date,totalItems:filtered.length};
 }
@@ -907,13 +920,20 @@ function buildPrintHTML(){
     const topItems=c.type2.length
       ? c.type2.map(t=>'<span class="pl-top-item">'+escapeP(prodLabel(t))+'</span>').join('')
       : '<span class="pl-top-none">（なし）</span>';
-    // 品番別 合計数（巣箱内＋台車上部すべてを品番-L寸でグループ化）
-    const counts={};
-    Object.keys(c.slots).forEach(k=>{const key=prodLabel(c.slots[k]);if(key)counts[key]=(counts[key]||0)+1;});
-    c.type2.forEach(t=>{const key=prodLabel(t);if(key)counts[key]=(counts[key]||0)+1;});
+    // 品番別 合計数（巣箱内＋台車上部すべてを品番-L寸でグループ化／棚番も集約）
+    const counts={},tanaByKey={};
+    const addCount=(sd)=>{const key=prodLabel(sd);if(!key)return;counts[key]=(counts[key]||0)+1;if(sd.tana){(tanaByKey[key]=tanaByKey[key]||new Set()).add(sd.tana);}};
+    Object.keys(c.slots).forEach(k=>addCount(c.slots[k]));
+    c.type2.forEach(t=>addCount(t));
     const keys=Object.keys(counts).sort((a,b)=>a.localeCompare(b,'ja',{numeric:true}));
     const totalQty=keys.reduce((s,k)=>s+counts[k],0);
-    const sumRows=keys.map(k=>'<div class="pl-sum-row'+(k.indexOf(HL_PREFIX)===0?' hl':'')+'"><span class="pl-sum-no">'+escapeP(k)+'</span><span class="pl-sum-q">'+counts[k]+'本</span></div>').join('');
+    const sumRows=keys.map(k=>{
+      const tana=tanaByKey[k]?Array.from(tanaByKey[k]).join(' / '):'';
+      return '<div class="pl-sum-row'+(k.indexOf(HL_PREFIX)===0?' hl':'')+'">'+
+        '<span class="pl-sum-no">'+escapeP(k)+'</span>'+
+        '<span class="pl-sum-tana">'+escapeP(tana)+'</span>'+
+        '<span class="pl-sum-q">'+counts[k]+'本</span></div>';
+    }).join('');
     const sumHtml=keys.length
       ? '<div class="pl-sum"><div class="pl-sum-title">品番別 合計数（'+keys.length+'品番／計'+totalQty+'本）</div><div class="pl-sum-cols">'+sumRows+'</div></div>'
       : '';

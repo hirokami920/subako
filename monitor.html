@@ -179,10 +179,23 @@ async function gasFetch(type){
 // ============================================================
 // CSV PARSING
 // ============================================================
+// CSV1行を「QR列」と「棚番列」に分解（2列: "QR","棚番"／旧1列両対応）。照合はQRのみ使用。
+function splitLine(raw){
+  let s=String(raw==null?'':raw).trim();
+  if(!s)return{qr:'',tana:''};
+  if(s.charAt(0)==='"'){
+    s=s.slice(1);
+    if(s.charAt(s.length-1)==='"')s=s.slice(0,-1);
+    const i=s.indexOf('","');
+    if(i>=0)return{qr:s.slice(0,i).replace(/""/g,'"'),tana:s.slice(i+3).replace(/""/g,'"')};
+    return{qr:s.replace(/""/g,'"'),tana:''};
+  }
+  return{qr:s,tana:''};
+}
 function parseCSVItems(rows){
   const items=[];
   rows.forEach(row=>{
-    const line=String(row[0]||'').replace(/"/g,'').trim();if(!line)return;
+    const sp=splitLine(row[0]);const line=sp.qr;if(!line)return;
     if(line.indexOf('ラベル')>=0&&line.indexOf('#')<0)return; // ヘッダー除外
     const hi=line.indexOf('#');if(hi<0)return;
     const key=line.substring(0,hi).trim();
@@ -190,7 +203,7 @@ function parseCSVItems(rows){
     const date=ap[0]||'';const ci=(ap[1]||'').trim();
     let cart='',slot=-1,type=1;
     if(ci.includes('-')){const s=ci.split('-');cart=s[0];slot=parseInt(s[1])}else{cart=ci;slot=-1;type=2}
-    items.push({key,full:line,date,cart,slot,type});
+    items.push({key,full:line,date,cart,slot,type,tana:sp.tana||''});
   });
   return items.length>0?items:null;
 }
