@@ -264,7 +264,8 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
   .pl-top-none{font-size:11px;color:#777}
   .pl-grid{display:grid;grid-template-columns:repeat(15,1fr);border-left:1.4px solid #222;border-top:1.4px solid #222}
   .pl-cell{border-right:1.4px solid #222;border-bottom:1.4px solid #222;height:12mm;padding:1px;display:flex;flex-direction:column;align-items:center;overflow:hidden}
-  .pl-cell.fill{background:#b4d0ee;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pl-cell.fill{background:#dcdcdc;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pl-cell.fill.hl{background:#74d4e6} /* 6K15911 など指定品番をシアンで強調 */
   .pl-cell.empty{background:#fff}
   .pl-n{font-size:9px;font-weight:700;color:#555;line-height:1}
   .pl-p{font-size:9.5px;font-weight:700;text-align:center;line-height:1.15;word-break:break-all;margin-top:1px}
@@ -273,6 +274,7 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
   .pl-sum-title{font-size:23px;font-weight:800;margin-bottom:5px}
   .pl-sum-cols{column-count:3;column-gap:16px}
   .pl-sum-row{display:flex;justify-content:space-between;align-items:baseline;border-bottom:0.5px dotted #999;padding:2.5px 5px;font-size:20px;break-inside:avoid}
+  .pl-sum-row.hl{background:#a8cdf5;-webkit-print-color-adjust:exact;print-color-adjust:exact} /* 6K15911 など指定品番をブルーで強調 */
   .pl-sum-no{font-weight:600}
   .pl-sum-q{font-weight:800;white-space:nowrap;margin-left:8px}
 }
@@ -884,6 +886,7 @@ function buildPrintHTML(){
   const now=new Date();
   const today=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
   const GC=15; // 巣箱の横並び数
+  const HL_PREFIX='6K15911'; // この品番で始まる品物を別色（シアン/ブルー）で強調
   let html='';
   ids.forEach(cid=>{
     const c=S.cartData.carts[cid];
@@ -897,7 +900,8 @@ function buildPrintHTML(){
       if(sn>maxSlot){cells+='<div class="pl-cell empty"></div>';continue;}
       const sd=c.slots[sn];
       const p=sd?prodLabelHTML(sd):'';
-      cells+='<div class="pl-cell '+(sd?'fill':'empty')+'"><div class="pl-n">'+sn+'</div><div class="pl-p">'+p+'</div></div>';
+      const hl=sd&&prodLabel(sd).indexOf(HL_PREFIX)===0;
+      cells+='<div class="pl-cell '+(sd?'fill':'empty')+(hl?' hl':'')+'"><div class="pl-n">'+sn+'</div><div class="pl-p">'+p+'</div></div>';
     }}
     // 台車上部（タイプ2＝巣箱の上に乗せる分）
     const topItems=c.type2.length
@@ -909,7 +913,7 @@ function buildPrintHTML(){
     c.type2.forEach(t=>{const key=prodLabel(t);if(key)counts[key]=(counts[key]||0)+1;});
     const keys=Object.keys(counts).sort((a,b)=>a.localeCompare(b,'ja',{numeric:true}));
     const totalQty=keys.reduce((s,k)=>s+counts[k],0);
-    const sumRows=keys.map(k=>'<div class="pl-sum-row"><span class="pl-sum-no">'+escapeP(k)+'</span><span class="pl-sum-q">'+counts[k]+'本</span></div>').join('');
+    const sumRows=keys.map(k=>'<div class="pl-sum-row'+(k.indexOf(HL_PREFIX)===0?' hl':'')+'"><span class="pl-sum-no">'+escapeP(k)+'</span><span class="pl-sum-q">'+counts[k]+'本</span></div>').join('');
     const sumHtml=keys.length
       ? '<div class="pl-sum"><div class="pl-sum-title">品番別 合計数（'+keys.length+'品番／計'+totalQty+'本）</div><div class="pl-sum-cols">'+sumRows+'</div></div>'
       : '';
