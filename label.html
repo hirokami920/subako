@@ -179,7 +179,7 @@ function parseCSV(rows){
     const date=ap[0]||'';const ci=(ap[1]||'').trim();
     let cart='',slot=-1;
     if(ci.includes('-')){const s=ci.split('-');cart=s[0];slot=parseInt(s[1])}else{cart=ci}
-    items.push({key,full:line,date,cart,slot});
+    items.push({gid:items.length,key,full:line,date,cart,slot});
   });
   return items.length>0?items:null;
 }
@@ -209,7 +209,7 @@ let currentPackDate=''; // 現在選択中の梱包日
 let packDates=[]; // 保持中の梱包日一覧（新しい順）
 // verifiedByDate[packDate] = {fulls:Set, list:[{index,key,time}]}
 let verifiedByDate={};
-let verifiedFulls=new Set(); // 現在選択中の梱包日の照合済みfull
+let verifiedIdx=new Set(); // 現在選択中の梱包日の照合済みgid（差込口なしの重複も個数分扱う）
 let verifiedList=[]; // 現在選択中の梱包日の照合履歴
 let lastKey=null,lastTime=null,showComplete=false;
 try{gasUrl=localStorage.getItem('subako_gas_url')||''}catch(e){}
@@ -241,9 +241,9 @@ async function loadData(){
 
     // 各梱包日の検証済みデータを初期化
     verifiedByDate={};
-    packDates.forEach(d=>{verifiedByDate[d]={fulls:new Set(),list:[]}});
+    packDates.forEach(d=>{verifiedByDate[d]={idx:new Set(),list:[]}});
     // 梱包日不明のグループも
-    if(!verifiedByDate[''])verifiedByDate['']={fulls:new Set(),list:[]};
+    if(!verifiedByDate[''])verifiedByDate['']={idx:new Set(),list:[]};
 
     // Load existing verifications
     try{
@@ -256,29 +256,25 @@ async function loadData(){
           const result=String(Array.isArray(row)?row[4]||'':'').trim();
           if(result.indexOf('OK')!==0)return;
           if(!labelFull&&!key)return;
-          // 対応するitemを全体から検索
-          let idx=-1;
-          if(labelFull){idx=allItems.findIndex(it=>it.full===labelFull)}
-          if(idx<0&&key){idx=allItems.findIndex(it=>it.key===key)}
+          // 対応するitemを「まだ照合していないインスタンス」から検索（重複は個数分割当）
           const rawTime=String(Array.isArray(row)?row[0]||'':'');
-          if(idx>=0){
-            const it=allItems[idx];
+          let gid=-1;
+          if(labelFull)gid=findUnverifiedGid(it=>it.full===labelFull);
+          if(gid<0&&key)gid=findUnverifiedGid(it=>it.key===key);
+          if(gid>=0){
+            const it=allItems[gid];
             const d=it.date||'';
-            if(!verifiedByDate[d])verifiedByDate[d]={fulls:new Set(),list:[]};
-            if(verifiedByDate[d].fulls.has(it.full))return;
-            verifiedByDate[d].fulls.add(it.full);
-            verifiedByDate[d].list.unshift({index:idx,key:it.key,time:fmtTime(rawTime)});
+            if(!verifiedByDate[d])verifiedByDate[d]={idx:new Set(),list:[]};
+            verifiedByDate[d].idx.add(gid);
+            verifiedByDate[d].list.unshift({gid:gid,key:it.key,time:fmtTime(rawTime)});
           }else{
-            // CSV上に存在しない（=両方完了で削除済みの可能性）→ labelFullから梱包日推定
+            // CSV上に存在しない（=両方完了で削除済みの可能性）→ labelFullから梱包日推定し履歴のみ
             let pd='';
             const hi=labelFull.indexOf('#');
             if(hi>=0){const m=labelFull.substring(hi+1).match(/^(\d{8})/);if(m)pd=m[1]}
             if(pd){
-              if(!verifiedByDate[pd])verifiedByDate[pd]={fulls:new Set(),list:[]};
-              if(!verifiedByDate[pd].fulls.has(labelFull)){
-                verifiedByDate[pd].fulls.add(labelFull);
-                verifiedByDate[pd].list.unshift({index:-1,key:key||labelFull,time:fmtTime(rawTime),deleted:true});
-              }
+              if(!verifiedByDate[pd])verifiedByDate[pd]={idx:new Set(),list:[]};
+              verifiedByDate[pd].list.unshift({gid:-1,key:key||labelFull,time:fmtTime(rawTime),deleted:true});
             }
           }
         });
@@ -292,18 +288,30 @@ async function loadData(){
   }catch(e){phase='nodata';renderPhase()}
 }
 
-// 現在の梱包日に合わせて items / verifiedFulls / verifiedList を切り替える
+// 同じfull/keyのうち、まだ照合していない最初のgidを返す（差込口なしの重複を個数分扱う）
+function findUnverifiedGid(pred){
+  for(let g=0;g<allItems.length;g++){
+    const it=allItems[g];
+    if(!pred(it))continue;
+    const b=verifiedByDate[it.date||''];
+    if(b&&b.idx&&b.idx.has(g))continue;
+    return g;
+  }
+  return -1;
+}
+
+// 現在の梱包日に合わせて items / verifiedIdx / verifiedList を切り替える
 function applyCurrentPackDate(){
   items=allItems.filter(it=>(it.date||'')===currentPackDate);
-  const bucket=verifiedByDate[currentPackDate]||{fulls:new Set(),list:[]};
-  verifiedFulls=bucket.fulls;
+  const bucket=verifiedByDate[currentPackDate]||{idx:new Set(),list:[]};
+  verifiedIdx=bucket.idx;
   verifiedList=bucket.list;
 }
 
 // ラベル読み取り時に、その梱包日へ自動切り替え
 function switchToPackDate(pd){
   if(!pd||pd===currentPackDate)return false;
-  if(!verifiedByDate[pd])verifiedByDate[pd]={fulls:new Set(),list:[]};
+  if(!verifiedByDate[pd])verifiedByDate[pd]={idx:new Set(),list:[]};
   if(packDates.indexOf(pd)<0){
     // 新しい梱包日が出てきた場合は末尾に追加
     packDates.push(pd);
@@ -347,19 +355,9 @@ function doVerify(shisho,label){
     }
   }
 
-  // Check 2: Same ラベルQR already scanned?（全梱包日でチェック）
-  let alreadyBucket=null;
-  Object.keys(verifiedByDate).forEach(d=>{
-    if(verifiedByDate[d].fulls.has(labelFull))alreadyBucket=d;
-  });
-  if(alreadyBucket){
-    showResult('ng','このラベルは照合済みです'+(alreadyBucket&&alreadyBucket!==currentPackDate?'（梱包日'+fmtPackDate(alreadyBucket)+'）':''));
-    playNg();return;
-  }
-
   // Check 3: ラベルQR full value exists in CSV list?（全体検索）
-  const idxAll=allItems.findIndex(it=>it.full===labelFull);
-  if(idxAll<0){
+  const existsIdx=allItems.findIndex(it=>it.full===labelFull);
+  if(existsIdx<0){
     const partialIdx=allItems.findIndex(it=>it.key===labelKey);
     if(partialIdx>=0){
       showResult('ng','ラベルQRがリストと完全一致しません');
@@ -369,7 +367,14 @@ function doVerify(shisho,label){
     playNg();return;
   }
 
-  const matchedItem=allItems[idxAll];
+  // Check 2: まだ照合していないインスタンスがあるか（差込口なしの重複は個数分OK）
+  const gid=findUnverifiedGid(it=>it.full===labelFull);
+  if(gid<0){
+    showResult('ng','このラベルは必要数すべて照合済みです');
+    playNg();return;
+  }
+
+  const matchedItem=allItems[gid];
   const matchedDate=matchedItem.date||'';
 
   // 梱包日不一致（念のため）
@@ -384,12 +389,10 @@ function doVerify(shisho,label){
   }
 
   // All checks passed — OK!
-  if(!verifiedByDate[matchedDate])verifiedByDate[matchedDate]={fulls:new Set(),list:[]};
-  verifiedByDate[matchedDate].fulls.add(matchedItem.full);
+  if(!verifiedByDate[matchedDate])verifiedByDate[matchedDate]={idx:new Set(),list:[]};
+  verifiedByDate[matchedDate].idx.add(gid);
   const now=new Date().toLocaleString('ja-JP');
-  // 現在表示中のitems配列上のindexを取る
-  const localIdx=items.findIndex(it=>it.full===matchedItem.full);
-  verifiedByDate[matchedDate].list.unshift({index:localIdx>=0?localIdx:idxAll,key:matchedItem.key,time:now});
+  verifiedByDate[matchedDate].list.unshift({gid:gid,key:matchedItem.key,time:now});
   // 現在選択中をリフレッシュ
   applyCurrentPackDate();
   lastKey=matchedItem.key;lastTime=now;
@@ -403,14 +406,14 @@ function doVerify(shisho,label){
   }else{
     updateLists();updateProgress();updateTabs();
   }
-  if(verifiedFulls.size>=items.length&&items.length>0){showComplete=true;renderComplete()}
+  if(verifiedIdx.size>=items.length&&items.length>0){showComplete=true;renderComplete()}
 }
 
 // ===== DOM REFERENCES (set once after buildApp) =====
 let elResult,elMsg,elShisho,elLabel,elLastInfo,elBeforeBody,elAfterBody,elBeforeCount,elAfterCount,elProgressFill,elProgressText,elChipCount,elChipPackDate,elPdTabs;
 
 function buildApp(){
-  const total=items.length,done=verifiedFulls.size,pct=total>0?(done/total*100):0;
+  const total=items.length,done=verifiedIdx.size,pct=total>0?(done/total*100):0;
   // Extract issue date and cart count from items
   const now=new Date();
   const issueDate=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
@@ -510,8 +513,8 @@ function updateTabs(){
   let html='<span class="packdate-tabs-label">📅 梱包日</span>';
   packDates.forEach(d=>{
     const group=allItems.filter(it=>(it.date||'')===d);
-    const bucket=verifiedByDate[d]||{fulls:new Set(),list:[]};
-    const t=group.length,dn=bucket.fulls.size;
+    const bucket=verifiedByDate[d]||{idx:new Set(),list:[]};
+    const t=group.length,dn=bucket.idx.size;
     const cls=d===currentPackDate?'pd-tab active':'pd-tab';
     html+='<button class="'+cls+'" onclick="selectPackDate(\''+d+'\')">'+fmtPackDate(d)+' <span class="pd-count">('+dn+'/'+t+')</span></button>';
   });
@@ -547,17 +550,17 @@ function showResult(type,msg){
 function updateLists(){
   // Before list
   let bh='';
-  items.forEach((it,i)=>{
-    if(verifiedFulls.has(items[i].full))return;
+  items.forEach((it)=>{
+    if(verifiedIdx.has(it.gid))return;
     bh+='<tr><td>'+esc(it.key)+'</td><td>'+esc(it.cart+(it.slot>0?'-'+it.slot:''))+'</td></tr>';
   });
   elBeforeBody.innerHTML=bh;
-  elBeforeCount.textContent=items.length-verifiedFulls.size;
+  elBeforeCount.textContent=items.length-verifiedIdx.size;
 
   // After list
   let ah='';
   verifiedList.forEach((v,i)=>{
-    const it=(v.index>=0&&items[v.index])?items[v.index]:null;
+    const it=(v.gid>=0&&allItems[v.gid])?allItems[v.gid]:null;
     const cartDisp=it?(it.cart+(it.slot>0?'-'+it.slot:'')):'<span style="color:var(--text3)">—</span>';
     const rowCls=(i===0?' class="just-matched"':(v.deleted?' style="opacity:0.6"':''));
     ah+='<tr'+rowCls+'><td>'+esc(v.key)+'</td><td>'+cartDisp+'</td><td class="time-col">'+esc(v.time)+'</td></tr>';
@@ -567,7 +570,7 @@ function updateLists(){
 }
 
 function updateProgress(){
-  const total=items.length,done=verifiedFulls.size,pct=total>0?(done/total*100):0;
+  const total=items.length,done=verifiedIdx.size,pct=total>0?(done/total*100):0;
   elProgressFill.style.width=pct+'%';
   elProgressText.textContent=pct.toFixed(1)+'%　'+done+' / '+total+' 照合済み';
   elChipCount.textContent=done+'/'+total+'本';

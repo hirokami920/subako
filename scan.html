@@ -875,8 +875,8 @@ function showResult(ok, cartExpect, cartActual, slotExpect, slotActual, rawLabel
   let detail = '';
   let ngReason = '';
 
-  // 重複チェック（照合自体がOKでも、既に同じ組み合わせが記録済みならNG）
-  if (ok && isDuplicate(cartActual, slotActual)) {
+  // 重複チェック（差込口があるタイプ1のみ。台車上部=差込口なしは同一QRを個数分OKにする）
+  if (ok && slotActual && isDuplicate(cartActual, slotActual)) {
     ok = false;
     ngReason = '重複';
     detail = '既に照合済みです: ' + cartActual + (slotActual ? '-' + slotActual : '');
