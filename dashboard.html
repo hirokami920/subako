@@ -953,24 +953,29 @@ function buildPrintHTML(){
   const now=new Date();
   const today=now.getFullYear()+'/'+String(now.getMonth()+1).padStart(2,'0')+'/'+String(now.getDate()).padStart(2,'0');
   const GC=15; // 巣箱の横並び数
+  const GRID_MAX=255; // 巣箱口は必ず1〜255まで表示
   const HL_PREFIX='6K15911'; // この品番で始まる品物を別色（シアン/ブルー）で強調
   let html='';
   ids.forEach(cid=>{
     const c=S.cartData.carts[cid];
     const maxSlot=c.maxSlot||0;
-    const total=Object.keys(c.slots).length+c.type2.length;
-    // 巣箱グリッド（各マス：上=巣箱口番号 / 下=品番-L寸）
-    const grows=Math.max(1,Math.ceil(maxSlot/GC));
+    const type1Count=Object.keys(c.slots).length; // 差込口に入る製品数（必要数）
+    const total=type1Count+c.type2.length;
+    const hasGrid=maxSlot>0; // 差込口に製品がある巣箱台車のみグリッド表示（台車上部「3_」は除く）
+    // 巣箱グリッド（必ず1〜255を表示。各マス：上=巣箱口番号 / 下=品番-L寸）
     let cells='';
-    for(let r=0;r<grows;r++){for(let col=0;col<GC;col++){
-      const sn=r*GC+col+1;
-      if(sn>maxSlot){cells+='<div class="pl-cell empty"></div>';continue;}
-      const sd=c.slots[sn];
-      const p=sd?prodLabelHTML(sd):'';
-      const hl=sd&&prodLabel(sd).indexOf(HL_PREFIX)===0;
-      const hasTana=sd&&sd.tana;
-      cells+='<div class="pl-cell '+(sd?'fill':'empty')+(hl?' hl':'')+(hasTana?' tana':'')+'"><div class="pl-n">'+sn+'</div><div class="pl-p">'+p+'</div></div>';
-    }}
+    if(hasGrid){
+      const grows=Math.ceil(GRID_MAX/GC); // 255 → 17行
+      for(let r=0;r<grows;r++){for(let col=0;col<GC;col++){
+        const sn=r*GC+col+1;
+        if(sn>GRID_MAX)break;
+        const sd=c.slots[sn];
+        const p=sd?prodLabelHTML(sd):'';
+        const hl=sd&&prodLabel(sd).indexOf(HL_PREFIX)===0;
+        const hasTana=sd&&sd.tana;
+        cells+='<div class="pl-cell '+(sd?'fill':'empty')+(hl?' hl':'')+(hasTana?' tana':'')+'"><div class="pl-n">'+sn+'</div><div class="pl-p">'+p+'</div></div>';
+      }}
+    }
     // 台車上部（タイプ2＝巣箱の上に乗せる分）
     const topItems=c.type2.length
       ? c.type2.map(t=>'<span class="pl-top-item">'+escapeP(prodLabel(t))+'</span>').join('')
@@ -989,11 +994,11 @@ function buildPrintHTML(){
         '<span class="pl-sum-tana">'+escapeP(tana)+'</span>'+
         '<span class="pl-sum-q">'+counts[k]+'本</span></div>';
     }).join('');
-    // 空白の巣箱口（製品が入らない＝×フタを差す入り口）の数 ＝ 巣箱口数 − 製品が入る差込口数
-    const emptySlots=Math.max(0,maxSlot-Object.keys(c.slots).length);
+    // 空白の巣箱口（×フタを差す入り口）＝ 255 − 必要数（差込口に入る製品数）
+    const emptySlots=Math.max(0,GRID_MAX-type1Count);
+    const emptyHtml=hasGrid?'<span class="pl-empty-cnt">空白の巣箱口：'+emptySlots+'口（×フタ）</span>':'';
     const sumHtml=keys.length
-      ? '<div class="pl-sum"><div class="pl-sum-title">品番別 合計数（'+keys.length+'品番／計'+totalQty+'本）'+
-        '<span class="pl-empty-cnt">空白の巣箱口：'+emptySlots+'口（×フタ）</span></div>'+
+      ? '<div class="pl-sum"><div class="pl-sum-title">品番別 合計数（'+keys.length+'品番／計'+totalQty+'本）'+emptyHtml+'</div>'+
         '<div class="pl-sum-cols">'+sumRows+'</div></div>'
       : '';
     html+='<div class="pl-page">'+
@@ -1001,7 +1006,7 @@ function buildPrintHTML(){
         '<div class="pl-meta">梱包日：'+fmtD(pd)+'　／　台車：'+escapeP(cid)+'　／　本数：'+total+'本</div></div>'+
         '<div class="pl-issue">発行日：'+today+'</div></div>'+
       '<div class="pl-top"><div class="pl-top-title">▲ 巣箱上に乗せる分（台車上部）</div><div class="pl-top-items">'+topItems+'</div></div>'+
-      '<div class="pl-grid">'+cells+'</div>'+
+      (hasGrid?'<div class="pl-grid">'+cells+'</div>':'')+
       sumHtml+
       '</div>';
   });

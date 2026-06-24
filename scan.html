@@ -130,6 +130,17 @@
   .capture-slider.disabled .capture-thumb { background: #b0b0b0; }
   .capture-slider.disabled .capture-track { color: #6e6e73; }
 
+  /* 読取ボタン（ワンタップ・片手操作） */
+  .capture-btn {
+    width: 100%; height: 64px; border: none; border-radius: 14px;
+    background: #007aff; color: #fff; font-size: 22px; font-weight: 800;
+    font-family: inherit; cursor: pointer; margin-bottom: 8px;
+    box-shadow: 0 3px 10px rgba(0,122,255,0.35);
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  .capture-btn:active { background: #005fcc; transform: scale(0.99); }
+  .capture-btn.disabled { opacity: 0.45; pointer-events: none; }
+
   /* 結果 */
   .result-banner {
     padding: 18px; border-radius: 12px; text-align: center;
@@ -319,11 +330,7 @@
   <!-- 現在のフェーズ表示 -->
   <div class="phase-label cart" id="phase-label">①台車QRを読み取ってください</div>
 
-  <div class="capture-slider" id="capture-slider">
-    <div class="capture-fill" id="capture-fill"></div>
-    <div class="capture-thumb" id="capture-thumb">→</div>
-    <div class="capture-track" id="capture-track">読取</div>
-  </div>
+  <button class="capture-btn" id="capture-btn">📷 読取（タップ）</button>
 
   <div class="slots">
     <div class="slot" id="slot1">
@@ -513,7 +520,7 @@ const liveEl = document.getElementById('scan-live');
 const guideEl = document.getElementById('scan-guide');
 const resultEl = document.getElementById('result');
 const phaseEl = document.getElementById('phase-label');
-const captureTrack = document.getElementById('capture-track');
+const captureTrack = document.getElementById('capture-btn');
 
 // =========== カメラ ===========
 async function initDetector() {
@@ -586,9 +593,9 @@ async function startCamera() {
 // ===== 読取精度向上のための設定・補助 =====
 // 検出領域を毎フレーム切り替えて、斜め・中心外・小さい(奥まった)QRを広くカバー
 //  0.4=狭め(小さいQRを拡大して精細に)  0.55=標準  0.72=広め(斜めで台形に広がるQR)
-const CROP_RATIOS = [0.55, 0.72, 0.4];
+const CROP_RATIOS = [0.5, 0.65, 0.4, 0.8];
 let scanFrame = 0;
-const MAX_PROC = 1280; // jsQR処理画像の最大辺(px)。負荷上限。
+const MAX_PROC = 1440; // jsQR処理画像の最大辺(px)。負荷上限。
 let lastDetectData = null; // 直近に検出できたQR
 let lastDetectTime = 0;    // その時刻(ms)
 
@@ -711,23 +718,23 @@ function updatePhase() {
   if (phase === 'cart') {
     phaseEl.textContent = '①台車QRを読み取ってください';
     phaseEl.className = 'phase-label cart';
-    statusEl.textContent = '台車QRにカメラを向けてスライド';
-    captureTrack.textContent = '読取';
+    statusEl.textContent = '台車QRにカメラを向けてタップで読取';
+    captureTrack.textContent = '📷 台車QRを読取';
     document.getElementById('slot1').classList.remove('target', 'filled');
     document.getElementById('slot2').classList.remove('target', 'filled');
   } else if (phase === 'slot') {
     phaseEl.textContent = '②差込口QR or 製品ラベルを読取';
     phaseEl.className = 'phase-label slot';
-    statusEl.textContent = '差込口QR/製品ラベルを枠内に大きく写す（ピントは画面タップ）';
-    captureTrack.textContent = '読取';
+    statusEl.textContent = '差込口QR/製品ラベルを枠内に大きく写してタップ（ピントは画面タップ）';
+    captureTrack.textContent = '📷 差込口/製品を読取';
     document.getElementById('slot1').classList.add('target');
     document.getElementById('slot1').classList.remove('filled');
     document.getElementById('slot2').classList.remove('target', 'filled');
   } else if (phase === 'label') {
     phaseEl.textContent = '③製品ラベルを読み取ってください';
     phaseEl.className = 'phase-label label';
-    statusEl.textContent = '製品ラベルにカメラを向けてスライド';
-    captureTrack.textContent = '読取';
+    statusEl.textContent = '製品ラベルにカメラを向けてタップで読取';
+    captureTrack.textContent = '📷 製品ラベルを読取';
     document.getElementById('slot1').classList.remove('target');
     document.getElementById('slot2').classList.add('target');
   }
@@ -763,7 +770,7 @@ function onCapture() {
   warmupAudio(); // スライド操作（ユーザー操作）でオーディオ/音声合成を起動
   // 現在検出中のQR。スライド中に検出が一瞬切れても直近(700ms以内)の読取を拾う
   let codeToUse = liveCode;
-  if (!codeToUse && lastDetectData && (Date.now() - lastDetectTime) < 700) {
+  if (!codeToUse && lastDetectData && (Date.now() - lastDetectTime) < 1000) {
     codeToUse = lastDetectData;
   }
   if (!codeToUse) {
@@ -1265,13 +1272,8 @@ function makeSlider(sliderEl, thumbEl, fillEl, onComplete, thumbW) {
   document.addEventListener('mouseup', end);
 }
 
-// 読取スライダー
-makeSlider(
-  document.getElementById('capture-slider'),
-  document.getElementById('capture-thumb'),
-  document.getElementById('capture-fill'),
-  onCapture
-);
+// 読取はワンタップ（片手操作のため、誤操作防止のフリック操作は廃止）
+document.getElementById('capture-btn').addEventListener('click', onCapture);
 
 // 台車完了スライダー
 makeSlider(
