@@ -940,17 +940,8 @@ function showResult(ok, cartExpect, cartActual, slotExpect, slotActual, rawLabel
     // 即時フィードバック：画面フラッシュ＋ブザー（音声より先に鳴らす）
     flashScreen('ng');
     playError();
-    // NG音声メッセージ生成
-    let spMsg = 'エヌジー。';
-    if (ngReason === '重複') {
-      spMsg += '重複です。この製品は既に照合済みです。';
-    } else if (ngReason === '台車不一致') {
-      spMsg += '台車が違います。期待: ' + cartExpect + '、読取: ' + cartActual;
-    } else if (ngReason === '差込口不一致') {
-      spMsg += '差込口が違います。期待: ' + slotExpect + '、読取: ' + (slotActual || 'なし');
-    } else {
-      spMsg += '照合が一致しません。';
-    }
+    // NG音声メッセージ（短く・すぐ次の作業へ）
+    const spMsg = 'エヌジーです。やり直してください。';
     statusEl.textContent = '✗ NG（' + ngReason + '）- 音声後に差込口QRから再読取します';
     const record = {
       time: new Date().toLocaleString('ja-JP'),
