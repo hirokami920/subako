@@ -289,6 +289,7 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
   /* 品番別 合計数 */
   .pl-sum{margin-top:10px;border-top:2px solid #222;padding-top:6px}
   .pl-sum-title{font-size:23px;font-weight:800;margin-bottom:5px}
+  .pl-empty-cnt{margin-left:18px;font-size:20px;font-weight:800;color:#7b1fa2;border:2px solid #7b1fa2;border-radius:6px;padding:1px 12px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .pl-sum-cols{column-count:3;column-gap:16px}
   .pl-sum-row{display:flex;justify-content:space-between;align-items:baseline;border-bottom:0.5px dotted #999;padding:2.5px 5px;font-size:20px;break-inside:avoid}
   .pl-sum-row.hl{background:#a8cdf5;-webkit-print-color-adjust:exact;print-color-adjust:exact} /* 6K15911 など指定品番をブルーで強調 */
@@ -988,8 +989,12 @@ function buildPrintHTML(){
         '<span class="pl-sum-tana">'+escapeP(tana)+'</span>'+
         '<span class="pl-sum-q">'+counts[k]+'本</span></div>';
     }).join('');
+    // 空白の巣箱口（製品が入らない＝×フタを差す入り口）の数 ＝ 巣箱口数 − 製品が入る差込口数
+    const emptySlots=Math.max(0,maxSlot-Object.keys(c.slots).length);
     const sumHtml=keys.length
-      ? '<div class="pl-sum"><div class="pl-sum-title">品番別 合計数（'+keys.length+'品番／計'+totalQty+'本）</div><div class="pl-sum-cols">'+sumRows+'</div></div>'
+      ? '<div class="pl-sum"><div class="pl-sum-title">品番別 合計数（'+keys.length+'品番／計'+totalQty+'本）'+
+        '<span class="pl-empty-cnt">空白の巣箱口：'+emptySlots+'口（×フタ）</span></div>'+
+        '<div class="pl-sum-cols">'+sumRows+'</div></div>'
       : '';
     html+='<div class="pl-page">'+
       '<div class="pl-header"><div><div class="pl-htitle">巣箱リスト</div>'+
