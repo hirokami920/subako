@@ -130,6 +130,31 @@
   .capture-slider.disabled .capture-thumb { background: #b0b0b0; }
   .capture-slider.disabled .capture-track { color: #6e6e73; }
 
+  /* 入力モード切替バー */
+  .mode-bar { display: flex; gap: 8px; margin-bottom: 8px; }
+  .mode-btn {
+    flex: 1; padding: 12px; border: 2px solid #d0d0d0; border-radius: 10px;
+    background: #fff; color: #6e6e73; font-size: 16px; font-weight: 700;
+    font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .mode-btn.active { border-color: #007aff; color: #007aff; background: #eef6ff; }
+
+  /* スキャナー待機パネル */
+  .scanner-wait {
+    display: none; background: #0b2136; color: #fff; border-radius: 12px;
+    padding: 26px 16px; text-align: center; margin-bottom: 8px;
+  }
+  .scanner-wait .sw-icon { font-size: 46px; line-height: 1; }
+  .scanner-wait .sw-title { font-size: 21px; font-weight: 800; margin-top: 8px; }
+  .scanner-wait .sw-sub { font-size: 15px; color: #bcd2e8; margin-top: 8px; font-weight: 600; }
+  .scanner-wait .sw-hint { font-size: 11px; color: #6e8aa6; margin-top: 12px; }
+
+  /* モード別の表示切替 */
+  #main-app.mode-scanner #scanner-area,
+  #main-app.mode-scanner #capture-btn { display: none; }
+  #main-app.mode-scanner #scanner-wait { display: block; }
+  #main-app.mode-camera #scanner-wait { display: none; }
+
   /* 読取ボタン（ワンタップ・片手操作） */
   .capture-btn {
     width: 100%; height: 64px; border: none; border-radius: 14px;
@@ -302,6 +327,12 @@
 <div class="container hidden" id="main-app">
   <h1>巣箱照合アプリ</h1>
 
+  <!-- 入力モード切替（既定=スキャナー） -->
+  <div class="mode-bar">
+    <button class="mode-btn" id="mode-scanner" onclick="setInputMode('scanner')">⌨ スキャナー</button>
+    <button class="mode-btn" id="mode-camera" onclick="setInputMode('camera')">📷 カメラ</button>
+  </div>
+
   <!-- 梱包日タブ -->
   <div class="packdate-tabs" id="pd-tabs" style="display:none">
     <span class="packdate-tabs-label">📅 梱包日</span>
@@ -317,6 +348,14 @@
       <div class="cart-label">照合数</div>
       <div class="cart-count-num" id="cart-count">0</div>
     </div>
+  </div>
+
+  <!-- スキャナー待機パネル（スキャナーモード時に表示） -->
+  <div class="scanner-wait" id="scanner-wait">
+    <div class="sw-icon">⌨</div>
+    <div class="sw-title">スキャナー読取モード</div>
+    <div class="sw-sub" id="sw-sub">指リングでQRを読み取ってください</div>
+    <div class="sw-hint">カメラで読みたい時は上の「📷 カメラ」をタップ</div>
   </div>
 
   <div class="scanner-area" id="scanner-area">
@@ -425,7 +464,7 @@ function showMain() {
   document.getElementById('main-app').classList.remove('hidden');
   warmupAudio(); // ボタン操作のうちにオーディオ/音声合成を起動
   loadPackDates();
-  startCamera();
+  applyInputMode(); // 既定=スキャナーモード（カメラはカメラモード選択時に起動）
 }
 
 // 梱包日一覧を GAS から取得
@@ -718,23 +757,26 @@ function updatePhase() {
   if (phase === 'cart') {
     phaseEl.textContent = '①台車QRを読み取ってください';
     phaseEl.className = 'phase-label cart';
-    statusEl.textContent = '台車QRにカメラを向けてタップで読取';
+    statusEl.textContent = '① 台車QR（カンバン）を読み取ってください';
     captureTrack.textContent = '📷 台車QRを読取';
+    { const sw=document.getElementById('sw-sub'); if(sw)sw.textContent='① 台車QR（カンバン）を読み取ってください'; }
     document.getElementById('slot1').classList.remove('target', 'filled');
     document.getElementById('slot2').classList.remove('target', 'filled');
   } else if (phase === 'slot') {
     phaseEl.textContent = '②差込口QR or 製品ラベルを読取';
     phaseEl.className = 'phase-label slot';
-    statusEl.textContent = '差込口QR/製品ラベルを枠内に大きく写してタップ（ピントは画面タップ）';
+    statusEl.textContent = '② 差込口QR または 製品ラベルを読み取ってください';
     captureTrack.textContent = '📷 差込口/製品を読取';
+    { const sw=document.getElementById('sw-sub'); if(sw)sw.textContent='② 差込口QR または 製品ラベルを読み取ってください'; }
     document.getElementById('slot1').classList.add('target');
     document.getElementById('slot1').classList.remove('filled');
     document.getElementById('slot2').classList.remove('target', 'filled');
   } else if (phase === 'label') {
     phaseEl.textContent = '③製品ラベルを読み取ってください';
     phaseEl.className = 'phase-label label';
-    statusEl.textContent = '製品ラベルにカメラを向けてタップで読取';
+    statusEl.textContent = '③ 製品ラベルを読み取ってください';
     captureTrack.textContent = '📷 製品ラベルを読取';
+    { const sw=document.getElementById('sw-sub'); if(sw)sw.textContent='③ 製品ラベルを読み取ってください'; }
     document.getElementById('slot1').classList.remove('target');
     document.getElementById('slot2').classList.add('target');
   }
@@ -766,9 +808,9 @@ function parseLabel(raw) {
 }
 
 // =========== キャプチャ処理 ===========
+// カメラ読取：現在検出中のQR（または直近1秒の検出）を共通処理へ渡す
 function onCapture() {
-  warmupAudio(); // スライド操作（ユーザー操作）でオーディオ/音声合成を起動
-  // 現在検出中のQR。スライド中に検出が一瞬切れても直近(700ms以内)の読取を拾う
+  warmupAudio();
   let codeToUse = liveCode;
   if (!codeToUse && lastDetectData && (Date.now() - lastDetectTime) < 1000) {
     codeToUse = lastDetectData;
@@ -778,8 +820,14 @@ function onCapture() {
     beep(300, 200);
     return;
   }
-  // 読取データから空白を除去
-  const data = codeToUse.replace(/\s/g, '');
+  processScan(codeToUse);
+}
+
+// 読み取った文字列を現在フェーズに従って照合（カメラ／スキャナー共通）
+function processScan(raw) {
+  warmupAudio();
+  const data = String(raw).replace(/\s/g, '');
+  if (!data) return;
 
   if (phase === 'cart') {
     // 台車QR読取（空白除去済み）
@@ -860,6 +908,56 @@ function onCapture() {
     showResult(ok, cartQR, parsed.cartPart, slotQR, parsed.slotNum, data);
   }
 }
+
+// =========== 入力モード（スキャナー / カメラ） ===========
+let inputMode = 'scanner';   // 既定はリングスキャナー読込
+let cameraStarted = false;
+
+function applyInputMode() {
+  const app = document.getElementById('main-app');
+  if (app) {
+    app.classList.toggle('mode-scanner', inputMode === 'scanner');
+    app.classList.toggle('mode-camera', inputMode === 'camera');
+  }
+  const bs = document.getElementById('mode-scanner');
+  const bc = document.getElementById('mode-camera');
+  if (bs) bs.classList.toggle('active', inputMode === 'scanner');
+  if (bc) bc.classList.toggle('active', inputMode === 'camera');
+  // カメラモードに切り替えたときだけカメラ起動（既定スキャナーなら起動しない＝権限要求なし）
+  if (inputMode === 'camera' && !cameraStarted) {
+    cameraStarted = true;
+    startCamera();
+  }
+  updatePhase();
+}
+function setInputMode(m) {
+  inputMode = m;
+  warmupAudio();
+  applyInputMode();
+}
+window.setInputMode = setInputMode;
+
+// リングスキャナー（Bluetooth HID＝キーボード）入力をページ全体で受信
+let scanBuf = '';
+document.addEventListener('keydown', function(e) {
+  if (inputMode !== 'scanner') return;
+  const mainApp = document.getElementById('main-app');
+  if (!mainApp || mainApp.classList.contains('hidden')) return; // 設定画面中は無視
+  if (e.key === 'Enter') {
+    const d = scanBuf.trim();
+    scanBuf = '';
+    if (d) { warmupAudio(); processScan(d); }
+    e.preventDefault();
+    return;
+  }
+  if (e.key && e.key.length === 1) {
+    scanBuf += e.key;
+    if (scanBuf.length > 300) scanBuf = ''; // 異常蓄積の保険
+  }
+});
+// 画面タップで音声/効果音を起動（スキャナーモードでも一度は必要）
+document.addEventListener('touchstart', warmupAudio, { passive: true });
+document.addEventListener('click', warmupAudio);
 
 // 現在読取中の梱包日を更新し、タブに反映
 function updateCurrentScanPackDate(pd) {
