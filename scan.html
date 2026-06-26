@@ -17,6 +17,17 @@
   .container { max-width: 600px; margin: 0 auto; }
   h1 { font-size: 17px; font-weight: 600; text-align: center; margin-bottom: 8px; }
 
+  /* 作業エリア：狭い画面=縦1列／広い画面(タブレット)=左右2列で縦に収める */
+  .work-area { display: flex; flex-direction: column; }
+  .wa-left, .wa-right { min-width: 0; }
+  @media (min-width: 760px) {
+    .container { max-width: 1040px; }
+    .work-area { flex-direction: row; gap: 16px; align-items: flex-start; }
+    .wa-left { flex: 1.1 1 0; min-width: 0; }
+    .wa-right { flex: 0.9 1 0; min-width: 0; }
+    .scanner-area { max-height: 340px; }
+  }
+
   /* 初期設定 */
   .setup-screen { background: #fff; border-radius: 12px; padding: 20px; margin-top: 20px; }
   .setup-screen h2 { font-size: 18px; margin-bottom: 12px; }
@@ -338,6 +349,10 @@
     <span class="packdate-tabs-label">📅 梱包日</span>
   </div>
 
+  <!-- 作業エリア（タブレット等の広い画面では左右2カラムにして縦に収める） -->
+  <div class="work-area">
+  <div class="wa-left">
+
   <!-- 台車情報 -->
   <div class="cart-bar empty" id="cart-bar">
     <div>
@@ -385,6 +400,10 @@
 
   <div class="result-banner" id="result"></div>
 
+  </div><!-- /wa-left -->
+
+  <div class="wa-right">
+
   <button class="btn btn-clear" onclick="clearSlots()">クリア（やり直し）</button>
 
   <div class="stats">
@@ -421,6 +440,9 @@
     <div class="slide-thumb" id="end-thumb">→</div>
     <div class="slide-track">全作業終了</div>
   </div>
+
+  </div><!-- /wa-right -->
+  </div><!-- /work-area -->
 </div>
 
 <!-- 完了画面 -->
