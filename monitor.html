@@ -229,15 +229,15 @@ function parseSubakoVerify(rows){
     // 梱包日抽出
     const pdm=label.match(/#(\d{8})/);
     if(pdm)packDate=pdm[1];
-    let m=label.match(/#\d{8},(\d+_\d+)(?:-(\d+))?/);
+    let m=label.match(/#\d{8},(\d+_\d*)(?:-(\d+))?/);
     if(m){cartId=m[1];slotNum=m[2]?parseInt(m[2]):null}
     if(!cartId){
-      const rc=String(row[4]||'').trim();const cm=rc.match(/(\d+_\d+)/);
+      const rc=String(row[4]||'').trim();const cm=rc.match(/(\d+_\d*)/);
       if(cm)cartId=cm[1];
       if(cartId){const rs=parseInt(String(row[5]||''));if(!isNaN(rs)&&rs>0)slotNum=rs}
     }
     if(!cartId){
-      const cb=String(row[1]||'').trim();const bm=cb.match(/(\d+_\d+)/);
+      const cb=String(row[1]||'').trim();const bm=cb.match(/(\d+_\d*)/);
       if(bm)cartId=bm[1];
       if(cartId){const cs=parseInt(String(row[2]||''));if(!isNaN(cs)&&cs>0)slotNum=cs}
     }

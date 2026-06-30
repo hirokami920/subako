@@ -641,21 +641,21 @@ function parseVerifyRows(rows){
       // 梱包日抽出
       const pdm=label.match(/#(\d{8})/);
       if(pdm)packDate=pdm[1];
-      let m=label.match(/#\d{8},(\d+_\d+)(?:-(\d+))?/);
+      let m=label.match(/#\d{8},(\d+_\d*)(?:-(\d+))?/);
       if(m){cartId=m[1];slotNum=m[2]?parseInt(m[2]):null}
       if(!cartId){
         const rawCart=String(row[4]||'').trim();
         const rawSlot=String(row[5]||'').trim();
-        const cm=rawCart.match(/(\d+_\d+)/);
+        const cm=rawCart.match(/(\d+_\d*)/);
         if(cm)cartId=cm[1];
         if(cartId){const rs=parseInt(rawSlot);if(!isNaN(rs)&&rs>0)slotNum=rs}
       }
       if(!cartId){
         const colB=String(row[1]||'').trim();
         const colC=String(row[2]||'').trim();
-        const bm=colB.match(/(\d+_\d+)/);
+        const bm=colB.match(/(\d+_\d*)/);
         if(bm)cartId=bm[1];
-        else{const am=String(row[3]||'').match(/(\d+_\d+)(?:-(\d+))?/);if(am){cartId=am[1];slotNum=am[2]?parseInt(am[2]):null}}
+        else{const am=String(row[3]||'').match(/(\d+_\d*)(?:-(\d+))?/);if(am){cartId=am[1];slotNum=am[2]?parseInt(am[2]):null}}
         if(cartId&&!slotNum){const cs=parseInt(colC);if(!isNaN(cs)&&cs>0)slotNum=cs}
       }
     }else if(typeof row==='object'){
@@ -663,7 +663,7 @@ function parseVerifyRows(rows){
       productLabel=String(label);
       const pdm=String(label).match(/#(\d{8})/);
       if(pdm)packDate=pdm[1];
-      let m=String(label).match(/#\d{8},(\d+_\d+)(?:-(\d+))?/);
+      let m=String(label).match(/#\d{8},(\d+_\d*)(?:-(\d+))?/);
       if(m){cartId=m[1];slotNum=m[2]?parseInt(m[2]):null}
     }
     if(cartId){
