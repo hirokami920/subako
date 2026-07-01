@@ -532,7 +532,7 @@ const S={
   // 検証済み（梱包日→cartId→Set）
   verifiedByDate:{},
   verified:{},           // 現在梱包日の検証データ（verifiedByDate[currentPackDate]）
-  gasUrl:'',pollTimer:null,lastPoll:null,gasError:null,gasRows:0,
+  gasUrl:'',pollTimer:null,reloadTimer:null,lastPoll:null,gasError:null,gasRows:0,
   phase:'init', // 'init' | 'setup' | 'loading' | 'nodata' | 'dashboard'
   showCsvModal:false,showSettingsModal:false,
   mobileView:'cart',autoFollow:true,
@@ -698,7 +698,13 @@ function parseVerifyRows(rows){
 
 function startPoll(){
   if(S.pollTimer)clearInterval(S.pollTimer);
-  if(S.gasUrl)S.pollTimer=setInterval(pollVerify,5000);
+  if(S.reloadTimer)clearInterval(S.reloadTimer);
+  if(S.gasUrl){
+    S.pollTimer=setInterval(pollVerify,5000);
+    // 常時表示（ラズパイ等キオスク）向け：一定間隔でCSVを含め全体を再取得し、
+    // 新しい梱包日の追加や「作業中の梱包日」への自動追従を反映する
+    S.reloadTimer=setInterval(loadAll,60000);
+  }
 }
 
 // ============================================================
@@ -863,8 +869,8 @@ function cartsDetailHTML(ids){
   return'<div class="carts-detail">'+ids.map(cid=>{
     const c=S.cartData.carts[cid],st=cartStats(cid),vs=S.verified[cid]||new Set();
     const isLatestCart=showLatest&&S.lastVerifiedCart===cid;
-    // 必要な行数のみ描画（巣箱を無駄に大きくしない）
-    const rows=Math.max(1,Math.ceil((c.maxSlot||0)/COLS));
+    // 巣箱台車(差込口あり)は常に1〜255まで表示。台車上部(3_)だけ従来通り。
+    const rows=(c.maxSlot>0)?Math.ceil(255/COLS):Math.max(1,Math.ceil((c.maxSlot||0)/COLS));
     let grid='';
     for(let r=0;r<rows;r++){for(let col=0;col<COLS;col++){
       const sn=r*COLS+col+1,sd=c.slots[sn];
