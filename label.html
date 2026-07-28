@@ -335,15 +335,32 @@ function switchToPackDate(pd){
   return true;
 }
 
+// 在庫ラベル(バーコード)を指示書QRと同じ表記へ正規化する。
+//   末尾が「-L + 5桁数字」の時だけ在庫ラベル形式とみなし、
+//   ・製品コード末尾の S / SS を除去
+//   ・5桁のL寸(=寸法×10)を数値表記に変換（例 11700→L1170 / 04150→L415 / 11705→L1170.5）
+//   5桁でなければ従来通りそのまま返す（指示書QRはそのまま）。
+function normalizeStockLabel(raw){
+  let s=String(raw==null?'':raw).trim();
+  const m=s.match(/^(.*)-L(\d{5})$/);
+  if(!m) return s;
+  const base=m[1].replace(/S{1,2}$/,'');   // 末尾のS/SSを除去
+  const d=m[2];                             // 5桁 = 寸法×10
+  const intp=parseInt(d.slice(0,4),10);     // 上位4桁 = 整数部（先頭0除去）
+  const dec=d.slice(4);                     // 下1桁 = 小数部
+  const dim=(dec==='0')?String(intp):(intp+'.'+dec);
+  return base+'-L'+dim;
+}
+
 // ===== VERIFY =====
 // 3-point verification:
 // 1. ラベルQR full value must exist in CSV list (exact match)
-// 2. 指示書コード (#より前) must match ラベルQR (#より前)
+// 2. 指示書/在庫ラベル (#より前・正規化) must match ラベルQR (#より前・正規化)
 // 3. Same ラベルQR cannot be scanned twice
 function doVerify(shisho,label){
-  // Extract keys (before #)
-  const shishoKey=shisho.includes('#')?shisho.substring(0,shisho.indexOf('#')):shisho;
-  const labelKey=label.includes('#')?label.substring(0,label.indexOf('#')):label;
+  // Extract keys (before #)。在庫ラベル(末尾-L5桁)は正規化して照合する。
+  const shishoKey=normalizeStockLabel(shisho.includes('#')?shisho.substring(0,shisho.indexOf('#')):shisho);
+  const labelKey=normalizeStockLabel(label.includes('#')?label.substring(0,label.indexOf('#')):label);
   // Use label as-is for full matching (trim whitespace)
   const labelFull=label.trim();
 
@@ -456,8 +473,8 @@ function buildApp(){
     '<div class="top-area">'+
     '<div class="result-box idle" id="result-box">待機中</div>'+
     '<div class="scan-area">'+
-    '<div class="scan-row"><span class="scan-row-label">📋 指示書</span><input class="scan-input" id="shisho-input" placeholder="指示書をスキャン" autocomplete="off"></div>'+
-    '<div class="scan-row"><span class="scan-row-label">🏷️ ラベル</span><input class="scan-input" id="label-input" placeholder="ラベルをスキャン" autocomplete="off"></div>'+
+    '<div class="scan-row"><span class="scan-row-label">📋 指示書</span><input class="scan-input" id="shisho-input" placeholder="指示書 / 在庫ラベルをスキャン" autocomplete="off" readonly inputmode="none"></div>'+
+    '<div class="scan-row"><span class="scan-row-label">🏷️ ラベル</span><input class="scan-input" id="label-input" placeholder="製品ラベルをスキャン" autocomplete="off" readonly inputmode="none"></div>'+
     '<div class="scan-msg" id="scan-msg"></div>'+
     '<div class="scan-hint">指示書 → ラベル の順にスキャン ／ Escでリセット</div>'+
     '<div class="last-info" id="last-info">'+(lastKey?'最新: '+esc(lastKey)+' ('+esc(lastTime)+')':'')+'</div>'+
@@ -490,30 +507,8 @@ function buildApp(){
   updateTabs();
   updateLists();
 
-  // Setup input handlers (once!)
-  elShisho.addEventListener('keydown',function(e){
-    if(e.key==='Enter'){
-      e.preventDefault();
-      const v=elShisho.value.trim();if(!v)return;
-      elShisho.classList.add('filled');
-      elLabel.focus();
-    }else if(e.key==='Escape'){e.preventDefault();resetAll()}
-  });
-  elLabel.addEventListener('keydown',function(e){
-    if(e.key==='Enter'){
-      e.preventDefault();
-      const sv=elShisho.value.trim();
-      const lv=elLabel.value.trim();
-      if(!sv||!lv)return;
-      doVerify(sv,lv);
-      // Reset inputs
-      elShisho.value='';elLabel.value='';
-      elShisho.classList.remove('filled');
-      elShisho.focus();
-    }else if(e.key==='Escape'){e.preventDefault();resetAll()}
-  });
-
-  elShisho.focus();
+  // 入力はページ全体のキーボード取り込み（handleScanKey）で受ける。
+  // フォーカスに依存しないため、タブレット(Android)でもスキャナーで読取できる。
 }
 
 // 梱包日タブを描画
@@ -542,12 +537,43 @@ window.selectPackDate=function(d){
 };
 
 function resetAll(){
-  elShisho.value='';elLabel.value='';
-  elShisho.classList.remove('filled');
-  elResult.className='result-box idle';elResult.textContent='待機中';
-  elMsg.textContent='';elMsg.className='scan-msg';
-  elShisho.focus();
+  scanStep='shisho';scanBuf='';shishoVal='';
+  if(elShisho){elShisho.value='';elShisho.classList.remove('filled');}
+  if(elLabel)elLabel.value='';
+  if(elResult){elResult.className='result-box idle';elResult.textContent='待機中';}
+  if(elMsg){elMsg.textContent='';elMsg.className='scan-msg';}
 }
+
+// ===== スキャナー入力（ページ全体で受信・指示書→ラベルの2段） =====
+let scanStep='shisho';   // 'shisho' | 'label'
+let scanBuf='';          // 読取中の文字バッファ
+let shishoVal='';        // 読み取った指示書/在庫ラベル
+function handleScanKey(e){
+  if(phase!=='app')return; // 設定画面などでは無効
+  const ae=document.activeElement;
+  if(ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')&&!ae.readOnly)return; // 通常入力欄は素通し
+  if(e.key==='Enter'){
+    e.preventDefault();
+    const v=scanBuf.trim();scanBuf='';
+    if(!v)return;
+    if(scanStep==='shisho'){
+      shishoVal=v;
+      if(elShisho){elShisho.value=v;elShisho.classList.add('filled');}
+      scanStep='label';
+    }else{
+      if(elLabel)elLabel.value=v;
+      doVerify(shishoVal,v);
+      // 次の1件へ
+      scanStep='shisho';shishoVal='';scanBuf='';
+      if(elShisho){elShisho.value='';elShisho.classList.remove('filled');}
+      if(elLabel)elLabel.value='';
+    }
+    return;
+  }
+  if(e.key==='Escape'){e.preventDefault();resetAll();return;}
+  if(e.key&&e.key.length===1){scanBuf+=e.key;if(scanBuf.length>200)scanBuf='';}
+}
+document.addEventListener('keydown',handleScanKey);
 
 function showResult(type,msg){
   if(type==='ok'){
