@@ -273,7 +273,11 @@ async function loadData(){
           const rawTime=String(Array.isArray(row)?row[0]||'':'');
           let gid=-1;
           if(labelFull)gid=findUnverifiedGid(it=>it.full===labelFull);
-          if(gid<0&&key)gid=findUnverifiedGid(it=>it.key===key);
+          // 品番一致のフォールバックは「同じ梱包日」に限定（別梱包日の古い記録を拾わない）
+          if(gid<0&&key){
+            const recPd=(String(labelFull).match(/#(\d{8})/)||[])[1]||'';
+            if(recPd)gid=findUnverifiedGid(it=>it.key===key&&(it.date||'')===recPd);
+          }
           if(gid>=0){
             const it=allItems[gid];
             const d=it.date||'';
@@ -591,7 +595,7 @@ function updateLists(){
   let bh='';
   items.forEach((it)=>{
     if(verifiedIdx.has(it.gid))return;
-    bh+='<tr><td>'+esc(it.key)+'</td><td>'+esc(it.cart+(it.slot>0?'-'+it.slot:''))+'</td></tr>';
+    bh+='<tr><td>'+esc(it.key)+'</td><td>'+pdCell(it.date)+esc(it.cart+(it.slot>0?'-'+it.slot:''))+'</td></tr>';
   });
   elBeforeBody.innerHTML=bh;
   elBeforeCount.textContent=items.length-verifiedIdx.size;
@@ -600,7 +604,7 @@ function updateLists(){
   let ah='';
   verifiedList.forEach((v,i)=>{
     const it=(v.gid>=0&&allItems[v.gid])?allItems[v.gid]:null;
-    const cartDisp=it?(it.cart+(it.slot>0?'-'+it.slot:'')):'<span style="color:var(--text3)">—</span>';
+    const cartDisp=it?(pdCell(it.date)+esc(it.cart+(it.slot>0?'-'+it.slot:''))):'<span style="color:var(--text3)">—</span>';
     const rowCls=(i===0?' class="just-matched"':(v.deleted?' style="opacity:0.6"':''));
     ah+='<tr'+rowCls+'><td>'+esc(v.key)+'</td><td>'+cartDisp+'</td><td class="time-col">'+esc(v.time)+'</td></tr>';
   });
@@ -628,6 +632,11 @@ function renderComplete(){
 }
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+// 台車列に併記する梱包日（MM/DD・薄色）。3_1-137 が毎日出るため識別用。
+function pdCell(d){
+  if(!d||d.length!==8)return '';
+  return '<span style="color:#94a8bc;font-size:11px;font-family:ui-monospace,monospace">'+d.slice(4,6)+'/'+d.slice(6,8)+'</span> ';
+}
 
 // Format time: handles ISO 8601 (2026-04-20T23:49:35.000Z), ja-JP locale, or passthrough
 function fmtTime(t){
