@@ -558,7 +558,7 @@ function handleScanKey(e){
   if(ae&&(ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')&&!ae.readOnly)return; // 通常入力欄は素通し
   if(e.key==='Enter'){
     e.preventDefault();
-    const v=scanBuf.trim();scanBuf='';
+    const v=decodeIfAltCodes(scanBuf.trim());scanBuf='';
     if(!v)return;
     if(scanStep==='shisho'){
       shishoVal=v;
@@ -632,6 +632,22 @@ function renderComplete(){
 }
 
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+// 一部のリーダーは「ALT＋テンキー方式」で文字をASCIIコード(3桁ゼロ埋め)として送る。
+//   例: 5K19377S-L04150 → 053075049057051055055083045076048052049053048
+//   （Excelでは正しく見えるがブラウザでは数字の羅列になる）
+//   全て数字・3の倍数長・各3桁が印字可能ASCII・復元結果に英字を含む場合のみ元の文字へ復元する。
+function decodeIfAltCodes(s){
+  s=String(s||'');
+  if(!/^\d+$/.test(s)||s.length<3||s.length%3!==0)return s;
+  let out='';
+  for(let i=0;i<s.length;i+=3){
+    const code=parseInt(s.slice(i,i+3),10);
+    if(code<32||code>126)return s;
+    out+=String.fromCharCode(code);
+  }
+  return /[A-Za-z]/.test(out)?out:s;
+}
+
 // 台車列に併記する梱包日（MM/DD・薄色）。3_1-137 が毎日出るため識別用。
 function pdCell(d){
   if(!d||d.length!==8)return '';
