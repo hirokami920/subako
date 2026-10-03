@@ -499,9 +499,9 @@ async function loadPackDates() {
     const data = await r.json();
     if (data && data.packDates) {
       packDates = data.packDates;
-      // デフォルト選択 = 最小梱包日（最古）
+      // デフォルト選択 = 直近 PD_TAB_COUNT 梱包日のうち最古（従来の3日保持時と同じ表示）
       if (!selectedPackDate || packDates.indexOf(selectedPackDate) < 0) {
-        selectedPackDate = packDates.length > 0 ? packDates[packDates.length - 1] : '';
+        selectedPackDate = packDates.length > 0 ? packDates[Math.min(PD_TAB_COUNT, packDates.length) - 1] : '';
       }
       renderPackDateTabs();
     }
@@ -522,8 +522,14 @@ function renderPackDateTabs() {
   }
   tabs.style.display = 'flex';
   let html = '<span class="packdate-tabs-label">📅 梱包日</span>';
-  // 古い順（最小から）表示
-  const sorted = packDates.slice().reverse();
+  // 古い順（最小から）表示。保存は最大30梱包日だが、タブは直近 PD_TAB_COUNT 日分
+  // （＋それより古い梱包日を選択中／読取中ならその日）だけ表示する
+  const shown = packDates.slice(0, PD_TAB_COUNT);
+  [selectedPackDate, currentScanPackDate].forEach(d => {
+    if (d && shown.indexOf(d) < 0 && packDates.indexOf(d) >= 0) shown.push(d);
+  });
+  shown.sort((a, b) => b.localeCompare(a));
+  const sorted = shown.reverse();
   sorted.forEach(d => {
     let cls = 'pd-tab';
     if (d === selectedPackDate) cls += ' active';
@@ -571,6 +577,7 @@ let totalCarts = 0;       // 完了台車数
 
 // 梱包日管理
 let packDates = [];              // GASから取得した梱包日一覧（新しい順）
+const PD_TAB_COUNT = 3;          // 梱包日タブに表示する直近の梱包日数
 let currentScanPackDate = '';    // 現在読取中のラベル梱包日
 let selectedPackDate = '';       // タブ選択中の梱包日（表示フィルタ用）
 

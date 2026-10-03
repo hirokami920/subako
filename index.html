@@ -219,7 +219,7 @@ input[type=file]{display:none}
           </div>
           <div class="csv-info">
             <h3>📂 CSV追加取込</h3>
-            <p>既存データを残して新しい行を追加 ／ 梱包日で自動グループ化 ／ 最大3日分保持</p>
+            <p>既存データを残して新しい行を追加 ／ 梱包日で自動グループ化 ／ 最大30日分保持</p>
           </div>
         </div>
         <div class="csv-actions">
@@ -437,10 +437,12 @@ function renderPackDates(dates){
   // Today in YYYYMMDD
   const now=new Date();
   const todayStr=now.getFullYear()+String(now.getMonth()+1).padStart(2,'0')+String(now.getDate()).padStart(2,'0');
-  badgesEl.innerHTML=dates.map(d=>{
+  // 最大30梱包日保持のため、直近5日分だけ表示し残りは件数のみ
+  const SHOW=5;
+  badgesEl.innerHTML=dates.slice(0,SHOW).map(d=>{
     const cls=d===todayStr?'packdate-badge today':'packdate-badge';
     return '<span class="'+cls+'">📦 '+fmtPackDate(d)+(d===todayStr?' (今日)':'')+'</span>';
-  }).join('');
+  }).join('')+(dates.length>SHOW?'<span class="packdate-badge" title="'+dates.slice(SHOW).map(fmtPackDate).join(' / ')+'">ほか '+(dates.length-SHOW)+'日分（全'+dates.length+'日）</span>':'');
   section.classList.add('has-data');
 }
 

@@ -58,6 +58,13 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 .pd-tab.active{background:var(--blue-600);color:#fff;border-color:var(--blue-600);box-shadow:0 2px 6px rgba(37,99,235,0.3)}
 .pd-tab .pd-count{font-size:10px;opacity:0.8;margin-left:3px}
 .pd-tab-empty{font-size:12px;color:var(--text3);font-style:italic}
+.pd-select{
+  background:var(--bg);border:1px solid var(--border);color:var(--text2);
+  border-radius:20px;padding:4px 10px;font-family:var(--font-mono);font-size:13px;font-weight:700;
+  cursor:pointer;flex-shrink:0;max-width:240px;
+}
+.pd-select.active{background:var(--blue-600);color:#fff;border-color:var(--blue-600)}
+.pd-select option{background:#fff;color:#111}
 
 /* PROGRESS */
 .progress-section{padding:8px 20px;flex-shrink:0;background:var(--bg-card);border-bottom:1px solid var(--border-light)}
@@ -220,6 +227,7 @@ let phase='init',gasUrl='';
 let allItems=[],items=null;
 let currentPackDate=''; // 現在選択中の梱包日
 let packDates=[]; // 保持中の梱包日一覧（新しい順）
+const PD_TAB_COUNT=3; // 梱包日タブに表示する直近の梱包日数（それより古い日はプルダウン）
 // verifiedByDate[packDate] = {fulls:Set, list:[{index,key,time}]}
 let verifiedByDate={};
 let verifiedIdx=new Set(); // 現在選択中の梱包日の照合済みgid（差込口なしの重複も個数分扱う）
@@ -523,18 +531,30 @@ function updateTabs(){
     return;
   }
   let html='<span class="packdate-tabs-label">📅 梱包日</span>';
-  packDates.forEach(d=>{
-    const group=allItems.filter(it=>(it.date||'')===d);
-    const bucket=verifiedByDate[d]||{idx:new Set(),list:[]};
-    const t=group.length,dn=bucket.idx.size;
+  const counts=d=>{
+    const t=allItems.filter(it=>(it.date||'')===d).length;
+    const dn=(verifiedByDate[d]||{idx:new Set()}).idx.size;
+    return dn+'/'+t;
+  };
+  // 保存は最大30梱包日。直近 PD_TAB_COUNT 日分はタブ、それより古い梱包日はプルダウンで選択
+  packDates.slice(0,PD_TAB_COUNT).forEach(d=>{
     const cls=d===currentPackDate?'pd-tab active':'pd-tab';
-    html+='<button class="'+cls+'" onclick="selectPackDate(\''+d+'\')">'+fmtPackDate(d)+' <span class="pd-count">('+dn+'/'+t+')</span></button>';
+    html+='<button class="'+cls+'" onclick="selectPackDate(\''+d+'\')">'+fmtPackDate(d)+' <span class="pd-count">('+counts(d)+')</span></button>';
   });
+  const older=packDates.slice(PD_TAB_COUNT);
+  if(older.length){
+    const isOld=older.indexOf(currentPackDate)>=0;
+    // スキャナー入力でプルダウンの選択が変わらないよう、キー操作は無効にする（タップで選択）
+    html+='<select class="pd-select'+(isOld?' active':'')+'" onkeydown="event.preventDefault()" onchange="this.blur();selectPackDate(this.value)">'+
+      '<option value=""'+(isOld?'':' selected')+'>過去の梱包日 ▼（'+older.length+'日分）</option>'+
+      older.map(d=>'<option value="'+d+'"'+(d===currentPackDate?' selected':'')+'>'+fmtPackDate(d)+' ('+counts(d)+')</option>').join('')+
+      '</select>';
+  }
   elPdTabs.innerHTML=html;
 }
 
 window.selectPackDate=function(d){
-  if(d===currentPackDate)return;
+  if(!d||d===currentPackDate)return;
   currentPackDate=d;
   applyCurrentPackDate();
   buildApp();

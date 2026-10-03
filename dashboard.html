@@ -69,6 +69,14 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 .pd-tab .pd-count{font-size:10px;opacity:0.85;margin-left:3px}
 .pd-tab.working{background:var(--active-bg);color:var(--active-orange);border-color:#fcd34d}
 .pd-tab.working.active{background:var(--active-orange);color:#fff;border-color:var(--active-orange)}
+.pd-select{
+  background:var(--bg);border:1px solid var(--border);color:var(--text2);
+  border-radius:20px;padding:5px 10px;font-family:var(--font-mono);font-size:13px;font-weight:700;
+  cursor:pointer;flex-shrink:0;max-width:220px;
+}
+.pd-select.active{background:var(--blue-600);color:#fff;border-color:var(--blue-600)}
+.pd-select option{background:#fff;color:#111}
+.pd-loading{font-size:11px;color:var(--blue-500);font-weight:700;flex-shrink:0}
 
 /* PROGRESS */
 .progress-section{padding:10px 20px;flex-shrink:0;background:var(--bg-card);border-bottom:1px solid var(--border-light)}
@@ -525,7 +533,11 @@ function buildCartData(items,packDate){
 const S={
   // CSV管理
   allItems:null,         // 全梱包日の全アイテム
-  packDates:[],          // 梱包日一覧(新しい順)
+  packDates:[],          // 梱包日一覧(新しい順・保存中の全梱包日)
+  packDateCounts:{},     // 梱包日ごとのCSV件数（GASが全梱包日分を返す）
+  loadedDates:{},        // allItemsに読み込み済みの梱包日
+  loading:false,         // loadAll実行中
+  lastFollowSig:null,    // 自動追従を最後に適用した照合行（新しい照合が入った時だけ追従する）
   currentPackDate:'',    // 選択中の梱包日
   cartData:null,         // 現在梱包日の台車データ
   selectedCart:null,
@@ -544,10 +556,16 @@ try{S.gasUrl=localStorage.getItem('subako_gas_url')||''}catch(e){}
 // ============================================================
 // GAS COMMUNICATION
 // ============================================================
-async function gasFetch(type){
+// 自動更新で取得する梱包日数（新しい方から）。それより古い梱包日は選択時にその日の分だけ取得する。
+const RECENT_DATES=3;
+function recentParams(){return{recent:RECENT_DATES,packDate:S.currentPackDate||''}}
+
+async function gasFetch(type,params){
   if(!S.gasUrl)return null;
   const sep=S.gasUrl.includes('?')?'&':'?';
-  const url=S.gasUrl+sep+'type='+type+'&t='+Date.now();
+  let q='';
+  if(params)Object.keys(params).forEach(k=>{if(params[k])q+='&'+k+'='+encodeURIComponent(params[k])});
+  const url=S.gasUrl+sep+'type='+type+q+'&t='+Date.now();
   const r=await fetch(url,{redirect:'follow'});
   if(!r.ok)throw new Error('HTTP '+r.status);
   return r.json();
@@ -565,9 +583,14 @@ async function gasPost(body){
 }
 
 // Load both CSV + verify data
+//   取得するのは「新しい方から RECENT_DATES 梱包日 + 選択中の梱包日」のみ（通信量を抑える）
 async function loadAll(){
+  if(S.loading)return;
+  S.loading=true;
+  const reqPd=S.currentPackDate;
   try{
-    const data=await gasFetch('both');
+    const data=await gasFetch('both',recentParams());
+    if(data.csv&&data.csv.packDateCounts)S.packDateCounts=data.csv.packDateCounts;
     // CSV data
     if(data.csv&&data.csv.status==='ok'&&data.csv.data&&data.csv.data.length>0){
       let rows=data.csv.data;
@@ -575,6 +598,9 @@ async function loadAll(){
       const allItems=parseCSVFromGAS(rows);
       if(allItems){
         S.allItems=allItems;
+        const loaded={};
+        allItems.forEach(it=>{if(it.date)loaded[it.date]=true});
+        S.loadedDates=loaded;
         S.packDates=(data.csv.packDates&&data.csv.packDates.length)?data.csv.packDates:collectPackDates(allItems);
         // 初回は最小梱包日（最古）を選択 → 要件的に「作業中」を想定→実際の自動追従で切替
         // デフォルトは最新（先頭）。自動追従が働けば適切なものに切り替わる
@@ -600,7 +626,10 @@ async function loadAll(){
     S.gasError=e.message;
     if(!S.cartData)S.phase='nodata';
   }
+  S.loading=false;
   render();
+  // 読込中に未読込の梱包日が選ばれていたら、その日の分を取り直す
+  if(S.currentPackDate&&S.currentPackDate!==reqPd&&!S.loadedDates[S.currentPackDate])loadAll();
 }
 
 // 梱包日を切り替える
@@ -611,13 +640,18 @@ function switchPackDate(pd){
   S.cartData=buildCartData(S.allItems||[],pd);
   S.verified=S.verifiedByDate[pd]||{};
   S.selectedCart=null; // 新しい梱包日では選択リセット
+  // 自動更新の対象外（古い梱包日）はその日の分を取得する
+  if(!S.loadedDates[pd])loadAll();
 }
 
 // Poll verify data only (every 5s)
 async function pollVerify(){
   if(!S.gasUrl||!S.cartData)return;
+  const reqPd=S.currentPackDate;
   try{
-    const data=await gasFetch('verify');
+    const data=await gasFetch('verify',recentParams());
+    // 取得中に梱包日が切り替わった場合、その日の記録が含まれないため捨てる（次回の取得で反映）
+    if(S.currentPackDate!==reqPd)return;
     if(Array.isArray(data)){
       parseVerifyRows(data);
       S.lastPoll=new Date();S.gasError=null;
@@ -682,7 +716,10 @@ function parseVerifyRows(rows){
     S.lastVerifiedCart=lastCart;S.lastVerifiedSlot=lastSlot;S.lastVerifiedTime=fmtTime(lastTime);S.lastVerifiedPackDate=lastPackDate;S.lastVerifiedKey=lastKey;
     if(lastLabel){const hi=lastLabel.indexOf('#');S.lastVerifiedLabel=hi>0?lastLabel.substring(0,hi):lastLabel}
     // Auto-follow: 梱包日とcartを追従
-    if(S.autoFollow){
+    //   新しい照合が入った時だけ追従する（過去の梱包日を手動で開いている間に5秒更新で戻されないように）
+    const followSig=String(lastTime)+'|'+String(lastLabel);
+    if(S.autoFollow&&followSig!==S.lastFollowSig){
+      S.lastFollowSig=followSig;
       // 異なる梱包日なら切替
       if(lastPackDate&&lastPackDate!==S.currentPackDate&&S.packDates.indexOf(lastPackDate)>=0){
         console.log('[AutoFollow] switching packDate to',lastPackDate);
@@ -711,10 +748,13 @@ function startPoll(){
 // STATS
 // ============================================================
 function cartStats(cid){
-  const c=S.cartData.carts[cid],skeys=Object.keys(c.slots);
-  const t1=skeys.length,t2c=c.type2.length,total=t1+t2c;
+  const c=S.cartData.carts[cid];
   const vs=S.verified[cid]||new Set();
-  let d1=0;skeys.forEach(s=>{if(vs.has(parseInt(s)))d1++});
+  // 差込口の母数＝CSV上の差込口 ∪ 照合済み差込口（両照合完了でCSVから削除された分も含める）
+  const slotSet=new Set(Object.keys(c.slots).map(Number));
+  vs.forEach(k=>{if(typeof k==='number')slotSet.add(k)});
+  const t1=slotSet.size,t2c=c.type2.length,total=t1+t2c;
+  let d1=0;slotSet.forEach(n=>{if(vs.has(n))d1++});
   let d2=0;for(let i=0;i<t2c;i++){if(vs.has('t2-'+i))d2++}
   const done=d1+d2;
   return{t1,t2c,total,done,d1,d2,complete:done>=total&&total>0};
@@ -747,8 +787,18 @@ function render(){
     app.innerHTML=nodataHTML();return;
   }
 
+  // 「過去の梱包日」リストを開いている間は再描画しない（5秒更新でリストが閉じてしまうため）
+  const ae=document.activeElement;
+  if(ae&&ae.classList&&ae.classList.contains('pd-select'))return;
+
   // Dashboard
   const a=allStats(),pct=a.ti>0?(a.di/a.ti*100):0;
+  // 選択した過去の梱包日を取得中
+  if(S.currentPackDate&&!S.loadedDates[S.currentPackDate]){
+    app.innerHTML=headerHTML(a)+packDateTabsHTML()+
+      '<div class="loading-overlay"><div class="spinner"></div><div class="loading-text">'+fmtD(S.currentPackDate)+' のデータを読み込み中...</div></div>';
+    return;
+  }
   const ids=sortC(Object.keys(S.cartData.carts));
   if(!S.selectedCart||!S.cartData.carts[S.selectedCart])S.selectedCart=ids[0];
 
@@ -772,23 +822,22 @@ function scrollToCard(cid){
 function packDateTabsHTML(){
   if(!S.packDates||S.packDates.length===0)return'';
   let html='<div class="packdate-tabs"><span class="packdate-tabs-label">📅 梱包日</span>';
-  S.packDates.forEach(d=>{
-    // 作業中判定: その梱包日に未完了の台車がある
-    const filtered=(S.allItems||[]).filter(it=>it.date===d);
-    const vbd=S.verifiedByDate[d]||{};
-    let totalItems=filtered.length,doneItems=0;
-    const cartMap={};
-    filtered.forEach(it=>{if(!cartMap[it.cart])cartMap[it.cart]={};cartMap[it.cart][it.slot>0?it.slot:'t2-'+(Object.keys(cartMap[it.cart]).length)]=true});
-    Object.keys(vbd).forEach(cid=>{const set=vbd[cid];set.forEach(()=>doneItems++)});
-    // doneItemsは他梱包日のデータが混入する可能性を避けるため、実数より多く/少なく出る可能性あり
-    // 単純にカウント
-    const isWorking=d===S.currentPackDate;
-    const isWorkingVsLabel=(S.lastVerifiedPackDate===d);
+  const cnt=d=>(S.packDateCounts&&S.packDateCounts[d]!=null)?S.packDateCounts[d]:(S.allItems||[]).filter(it=>it.date===d).length;
+  // 新しい方から RECENT_DATES 日分はタブ、それより古い梱包日はプルダウンで選択
+  S.packDates.slice(0,RECENT_DATES).forEach(d=>{
     let cls='pd-tab';
     if(d===S.currentPackDate)cls+=' active';
-    if(isWorkingVsLabel&&d!==S.currentPackDate)cls+=' working';
-    html+='<button class="'+cls+'" onclick="W.setPackDate(\''+d+'\')">'+fmtD(d)+' <span class="pd-count">('+totalItems+')</span></button>';
+    if(S.lastVerifiedPackDate===d&&d!==S.currentPackDate)cls+=' working';
+    html+='<button class="'+cls+'" onclick="W.setPackDate(\''+d+'\')">'+fmtD(d)+' <span class="pd-count">('+cnt(d)+')</span></button>';
   });
+  const older=S.packDates.slice(RECENT_DATES);
+  if(older.length){
+    const isOld=older.indexOf(S.currentPackDate)>=0;
+    html+='<select class="pd-select'+(isOld?' active':'')+'" onchange="this.blur();W.setPackDate(this.value)">'+
+      '<option value=""'+(isOld?'':' selected')+'>過去の梱包日 ▼（'+older.length+'日分）</option>'+
+      older.map(d=>'<option value="'+d+'"'+(d===S.currentPackDate?' selected':'')+'>'+fmtD(d)+' ('+cnt(d)+')</option>').join('')+
+      '</select>';
+  }
   html+='</div>';
   return html;
 }
@@ -874,10 +923,11 @@ function cartsDetailHTML(ids){
     let grid='';
     for(let r=0;r<rows;r++){for(let col=0;col<COLS;col++){
       const sn=r*COLS+col+1,sd=c.slots[sn];
-      if(sd){
-        const dn=vs.has(sn);
+      const dn=vs.has(sn);
+      if(sd||dn){ // 製品あり、または照合済み（両照合完了でCSVから削除された分も緑表示）
         const latest=isLatestCart&&S.lastVerifiedKey===sn;
-        grid+='<div class="lcell '+(dn?'done':'pending')+(latest?' latest':'')+'" onclick="W.tog(\''+cid+'\','+sn+')">'+sn+'<div class="tip">#'+sn+' '+sd.product+','+sd.num+'</div></div>';
+        const tip=sd?('#'+sn+' '+sd.product+','+sd.num):('#'+sn+' 照合済み（完了）');
+        grid+='<div class="lcell '+(dn?'done':'pending')+(latest?' latest':'')+'" onclick="W.tog(\''+cid+'\','+sn+')">'+sn+'<div class="tip">'+tip+'</div></div>';
       }else grid+='<div class="lcell empty"></div>';
     }}
     let t2='';
@@ -1110,7 +1160,7 @@ const W={
     S.gasUrl=url.trim();
     try{localStorage.setItem('subako_gas_url',S.gasUrl)}catch(e){}
     try{
-      const data=await gasFetch('both');
+      const data=await gasFetch('packdates');
       if(!data){el.innerHTML='<span style="color:#ef4444">レスポンスが空です</span>';return}
       el.innerHTML='<span style="color:var(--done)">✓ 接続成功！</span>';
       S.phase='loading';render();
@@ -1140,7 +1190,7 @@ const W={
     S.verified=S.verifiedByDate[S.currentPackDate];
     render();
   },
-  toggleAuto(){S.autoFollow=!S.autoFollow;render()},
+  toggleAuto(){S.autoFollow=!S.autoFollow;if(S.autoFollow)S.lastFollowSig=null;render()}, // ONにしたら次回更新で最新の照合へ追従
   showSettings(){S.showSettingsModal=true;render()},
   closeSettings(e){if(e.target.classList.contains('modal-bg')){S.showSettingsModal=false;render()}},
   async saveSettings(){

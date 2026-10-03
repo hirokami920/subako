@@ -60,6 +60,13 @@ html,body{height:100%;font-family:var(--font-body);background:var(--bg);color:va
 .pd-tab:hover{border-color:var(--blue-400);color:var(--blue-600)}
 .pd-tab.active{background:var(--blue-600);color:#fff;border-color:var(--blue-600);box-shadow:0 2px 6px rgba(37,99,235,0.3)}
 .pd-tab .pd-count{font-size:11px;opacity:0.85;margin-left:3px}
+.pd-select{
+  background:var(--bg);border:1px solid var(--border);color:var(--text2);
+  border-radius:20px;padding:5px 12px;font-family:var(--font-mono);font-size:14px;font-weight:700;
+  cursor:pointer;flex-shrink:0;max-width:240px;
+}
+.pd-select.active{background:var(--blue-600);color:#fff;border-color:var(--blue-600)}
+.pd-select option{background:#fff;color:#111}
 
 /* Panel header */
 .panel-header{
@@ -152,8 +159,14 @@ let gasUrl='',phase='init',pollTimer=null,lastPoll=null;
 let allItems=null;
 // 現在選択中の梱包日
 let currentPackDate='';
-// 梱包日一覧（新しい順）
+// 梱包日一覧（新しい順・保存中の全梱包日）
 let packDates=[];
+// 梱包日ごとのCSV件数（GASが全梱包日分を返す）
+let packDateCounts={};
+// allItemsに読み込み済みの梱包日
+let loadedDates={};
+// 自動更新で取得する梱包日数（新しい方から）。それより古い梱包日は選択時にその日の分だけ取得する。
+const RECENT_DATES=3;
 // Label data (現在梱包日)
 let labelItems=null,labelVerified=new Set(),labelVerifiedList=[];
 // 各梱包日の検証済み
@@ -169,9 +182,11 @@ try{gasUrl=localStorage.getItem('subako_gas_url')||''}catch(e){}
 // ============================================================
 // GAS
 // ============================================================
-async function gasFetch(type){
+async function gasFetch(type,params){
   const sep=gasUrl.includes('?')?'&':'?';
-  const r=await fetch(gasUrl+sep+'type='+type+'&t='+Date.now(),{redirect:'follow'});
+  let q='';
+  if(params)Object.keys(params).forEach(k=>{if(params[k])q+='&'+k+'='+encodeURIComponent(params[k])});
+  const r=await fetch(gasUrl+sep+'type='+type+q+'&t='+Date.now(),{redirect:'follow'});
   if(!r.ok)throw new Error('HTTP '+r.status);
   return r.json();
 }
@@ -309,29 +324,9 @@ function parseLabelVerify(rows){
 // ============================================================
 async function loadAll(){
   try{
-    // Load CSV
-    const csvData=await gasFetch('csv');
-    if(csvData&&csvData.status==='ok'&&csvData.data&&csvData.data.length>0){
-      let rows=csvData.data;
-      if(rows[0]&&String(rows[0][0]).includes('ラベル'))rows=rows.slice(1);
-      allItems=parseCSVItems(rows);
-      if(allItems){
-        // 梱包日一覧（新しい順）
-        const dateSet={};
-        allItems.forEach(it=>{if(it.date)dateSet[it.date]=true});
-        packDates=Object.keys(dateSet).sort((a,b)=>b.localeCompare(a));
-        // デフォルトは最小（最古）梱包日 — 要件「デフォルトは最小梱包日」
-        if(!currentPackDate||packDates.indexOf(currentPackDate)<0){
-          currentPackDate=packDates.length>0?packDates[packDates.length-1]:'';
-        }
-        // 現在梱包日で items/subakoData を構築
-        applyCurrentPackDate();
-      }
-    }
-    if(!allItems){phase='nodata';renderPhase();return}
-
-    // Load verifications (全梱包日)
+    // CSV・照合記録を読み込む（pollData内で梱包日一覧と現在梱包日も決まる）
     await pollData();
+    if(!allItems){phase='nodata';renderPhase();return}
 
     phase='app';
     renderPhase();
@@ -361,50 +356,68 @@ function switchPackDate(pd){
   applyCurrentPackDate();
   // 再構築
   buildDashboard();
+  // 自動更新の対象外（古い梱包日）はその日の分を取得する
+  if(!loadedDates[pd])pollData();
 }
 window.switchPackDate=switchPackDate;
 
+// CSVレスポンスを反映（梱包日一覧・件数・読込済み梱包日）
+function applyCsvResponse(csvData){
+  if(!csvData)return;
+  if(csvData.packDateCounts)packDateCounts=csvData.packDateCounts;
+  if(csvData.status!=='ok'||!csvData.data)return;
+  let rows=csvData.data;
+  if(rows[0]&&String(rows[0][0]).includes('ラベル'))rows=rows.slice(1);
+  const newAll=parseCSVItems(rows);
+  if(!newAll)return;
+  allItems=newAll;
+  const loaded={};
+  allItems.forEach(it=>{if(it.date)loaded[it.date]=true});
+  loadedDates=loaded;
+  packDates=(csvData.packDates&&csvData.packDates.length)?csvData.packDates:Object.keys(loaded).sort((a,b)=>b.localeCompare(a));
+  // 初期表示／現在梱包日が消えた場合：直近 RECENT_DATES 梱包日のうち最も古い日
+  //   （従来の「最大3日保持・デフォルトは最小梱包日」と同じ表示になる）
+  if(!currentPackDate||packDates.indexOf(currentPackDate)<0){
+    currentPackDate=packDates.length>0?packDates[Math.min(RECENT_DATES,packDates.length)-1]:'';
+  }
+}
+
+// 「過去の梱包日」リストを開いている間は再描画しない（5秒更新でリストが閉じてしまうため）
+function isPdSelectOpen(){
+  const ae=document.activeElement;
+  return !!(ae&&ae.classList&&ae.classList.contains('pd-select'));
+}
+
+// 取得するのは「新しい方から RECENT_DATES 梱包日 + 選択中の梱包日」のみ（通信量を抑える）
+let polling=false;
 async function pollData(){
+  if(polling)return;
+  polling=true;
+  const reqPd=currentPackDate;
+  const params={recent:RECENT_DATES,packDate:reqPd};
+  let stale=false;
   try{
-    // Label verifications（全梱包日）
-    try{
-      const lv=await gasFetch('labelverify');
-      if(Array.isArray(lv))parseLabelVerify(lv);
-    }catch(e){}
+    let csvData=null,lv=null,sv=null;
+    try{csvData=await gasFetch('csv',params)}catch(e){}
+    try{lv=await gasFetch('labelverify',params)}catch(e){}
+    try{sv=await gasFetch('verify',params)}catch(e){}
 
-    // Subako verifications（全梱包日）
-    try{
-      const sv=await gasFetch('verify');
-      if(Array.isArray(sv))parseSubakoVerify(sv);
-    }catch(e){}
+    // 取得中に梱包日が切り替わった場合、その日の分が含まれないため捨てて取り直す
+    if(reqPd&&currentPackDate!==reqPd){stale=true;return}
 
-    // CSV再取得（両方完了で削除された行を反映）
-    try{
-      const csvData=await gasFetch('csv');
-      if(csvData&&csvData.status==='ok'&&csvData.data){
-        let rows=csvData.data;
-        if(rows[0]&&String(rows[0][0]).includes('ラベル'))rows=rows.slice(1);
-        const newAll=parseCSVItems(rows);
-        if(newAll){
-          allItems=newAll;
-          const dateSet={};
-          allItems.forEach(it=>{if(it.date)dateSet[it.date]=true});
-          packDates=Object.keys(dateSet).sort((a,b)=>b.localeCompare(a));
-          // 現在梱包日が消えていたら最小（最古）に切替
-          if(packDates.indexOf(currentPackDate)<0){
-            currentPackDate=packDates.length>0?packDates[packDates.length-1]:'';
-          }
-        }
-      }
-    }catch(e){}
+    applyCsvResponse(csvData);
+    if(Array.isArray(lv))parseLabelVerify(lv);
+    if(Array.isArray(sv))parseSubakoVerify(sv);
 
     applyCurrentPackDate();
 
     lastPoll=new Date();
-    if(phase==='app'){
+    if(phase==='app'&&!isPdSelectOpen()){
       buildDashboard(); // タブも更新するため全体再構築
     }
   }catch(e){console.warn('poll error:',e)}
+  finally{polling=false}
+  if(stale)pollData();
 }
 
 function startPoll(){
@@ -417,10 +430,12 @@ function startPoll(){
 // ============================================================
 function subakoCartStats(cid){
   const c=subakoData.carts[cid];
-  const skeys=Object.keys(c.slots);
-  const t1=skeys.length,t2c=c.type2.length,total=t1+t2c;
   const vs=subakoVerified[cid]||new Set();
-  let d1=0;skeys.forEach(s=>{if(vs.has(parseInt(s)))d1++});
+  // 差込口の母数＝CSV上の差込口 ∪ 照合済み差込口（両照合完了でCSVから削除された分も含める）
+  const slotSet=new Set(Object.keys(c.slots).map(Number));
+  vs.forEach(k=>{if(typeof k==='number')slotSet.add(k)});
+  const t1=slotSet.size,t2c=c.type2.length,total=t1+t2c;
+  let d1=0;slotSet.forEach(n=>{if(vs.has(n))d1++});
   let d2=0;for(let i=0;i<t2c;i++){if(vs.has('t2-'+i))d2++}
   return{t1,t2c,total,done:d1+d2,d1,d2,complete:(d1+d2)>=total&&total>0};
 }
@@ -476,14 +491,23 @@ function renderPhase(){
 function packDateTabsHTML(){
   if(!packDates||packDates.length===0)return'';
   let html='<div class="packdate-tabs"><span class="packdate-tabs-label">📅 梱包日</span>';
+  const cnt=d=>(packDateCounts&&packDateCounts[d]!=null)?packDateCounts[d]:(allItems||[]).filter(it=>it.date===d).length;
+  // 直近 RECENT_DATES 日より古い梱包日はプルダウン（古い順の並びに合わせて左側に置く）
+  const older=packDates.slice(RECENT_DATES);
+  if(older.length){
+    const isOld=older.indexOf(currentPackDate)>=0;
+    html+='<select class="pd-select'+(isOld?' active':'')+'" onchange="this.blur();switchPackDate(this.value)">'+
+      '<option value=""'+(isOld?'':' selected')+'>過去の梱包日 ▼（'+older.length+'日分）</option>'+
+      older.map(d=>'<option value="'+d+'"'+(d===currentPackDate?' selected':'')+'>'+fmtD(d)+' ('+cnt(d)+')</option>').join('')+
+      '</select>';
+  }
   // 古い順（最小から）表示: 要件「デフォルトは最小梱包日」に沿ってUIも古い順で並べる
-  const sorted=packDates.slice().reverse();
+  const sorted=packDates.slice(0,RECENT_DATES).reverse();
   sorted.forEach(d=>{
-    const filtered=(allItems||[]).filter(it=>it.date===d);
-    const totalItems=filtered.length;
     const cls=d===currentPackDate?'pd-tab active':'pd-tab';
-    html+='<button class="'+cls+'" onclick="switchPackDate(\''+d+'\')">'+fmtD(d)+' <span class="pd-count">('+totalItems+')</span></button>';
+    html+='<button class="'+cls+'" onclick="switchPackDate(\''+d+'\')">'+fmtD(d)+' <span class="pd-count">('+cnt(d)+')</span></button>';
   });
+  if(currentPackDate&&!loadedDates[currentPackDate])html+='<span class="packdate-tabs-label" style="color:var(--blue-600)">読み込み中...</span>';
   html+='</div>';
   return html;
 }
@@ -622,7 +646,8 @@ function updateUI(){
       for(let r=0;r<17;r++){for(let col=0;col<15;col++){
         const sn=r*15+col+1;
         const sd=c.slots[sn];
-        mg+='<div class="mcell '+(sd?(vs.has(sn)?'done':'pending'):'empty')+'"></div>';
+        // 照合済みは完了でCSVから削除された分も緑(done)表示
+        mg+='<div class="mcell '+((sd||vs.has(sn))?(vs.has(sn)?'done':'pending'):'empty')+'"></div>';
       }}
       ch+='<div class="mini-cart'+(st.complete?' mc-done':'')+'">'+
         '<div class="mc-top"><span class="mc-id">'+cid+'</span><span class="mc-badge '+(st.complete?'mcb-done':'mcb-prog')+'">'+(st.complete?'完了':cp+'%')+'</span></div>'+
